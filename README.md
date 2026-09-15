@@ -21,7 +21,7 @@ devcontainer needs to be rebuilt or reopened on another machine.
 Open this repo in IntelliJ IDEA with the [Gateway / Dev Containers
 plugin](https://www.jetbrains.com/help/idea/connect-to-devcontainer.html), or
 in VS Code with the Dev Containers extension. The container build installs
-Node 22, the Supabase CLI, `uv` + Spec Kit's `specify` CLI, Claude Code, and
+Node 24, the Supabase CLI, `uv` + Spec Kit's `specify` CLI, Claude Code, and
 the GitHub CLI, and mounts your host SSH keys, git config, and Claude auth
 state (see [Mounts caveats](#mounts-caveats) below).
 
