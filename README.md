@@ -75,6 +75,10 @@ hits an empty `127.0.0.1:54322`, fails with `ECONNREFUSED`, and stops the stack
 it just started. If you ever see that error, check that `runArgs` is still there
 and rebuild the container.
 
+For the same reason `.devcontainer/devcontainer.json` declares no `forwardPorts`:
+with a shared namespace the IDE's forwarders would bind 54321-54324 on the host
+loopback first, and `supabase start` would fail with `address already in use`.
+
 ### 3. Environment variables
 
 ```bash

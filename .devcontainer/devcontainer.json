@@ -64,17 +64,13 @@
   // this container binds is bound on the host.
   "runArgs": ["--network=host"],
 
-  // Redundant under host networking (these ports are already on the host), but
-  // kept so the set of ports this project uses stays documented, and so the
-  // setup still works if host networking is ever dropped.
-  "forwardPorts": [5173, 54321, 54322, 54323, 54324],
-  "portsAttributes": {
-    "5173": { "label": "Vite dev server" },
-    "54321": { "label": "Supabase API (local)" },
-    "54322": { "label": "Supabase Postgres (local)" },
-    "54323": { "label": "Supabase Studio (local)" },
-    "54324": { "label": "Supabase Mailpit (local)" }
-  },
+  // No forwardPorts/portsAttributes on purpose. Under host networking there is
+  // nothing to forward — the ports are already on the host — and the IDE's
+  // forwarders actively squat them: with 54321-54324 listed here, the JetBrains
+  // client bound them on 127.0.0.1 and `supabase start` died with
+  // "failed to bind host port 0.0.0.0:54322/tcp: address already in use".
+  // Ports this project uses are documented in README.md's "Local database
+  // (tests)" section instead. Only re-add these if host networking is dropped.
 
   "customizations": {
     "jetbrains": {
