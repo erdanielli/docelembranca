@@ -50,6 +50,31 @@ Providers, using a Google Cloud OAuth Client ID with redirect URI:
 https://wdxbkldmaayidydsnuya.supabase.co/auth/v1/callback
 ```
 
+### 2b. Local database (tests)
+
+The hosted project above is the deployment target. Tests never run against it —
+pgTAP creates and destroys rows and impersonates roles — so they run against a
+local stack instead:
+
+```bash
+supabase start          # first run pulls ~12 images
+supabase test db        # pgTAP: RPCs, views, triggers, RLS policies
+npm run gen:types       # regenerate src/lib/database.types.ts from the local schema
+supabase migration up   # apply supabase/migrations/ locally
+supabase stop           # free the containers when done (--no-backup to discard data)
+```
+
+Local URLs once it is up: API `localhost:54321`, Postgres `localhost:54322`,
+Studio `localhost:54323`, Mailpit `localhost:54324`.
+
+**This requires the devcontainer's host networking** (`"runArgs":
+["--network=host"]` in `.devcontainer/devcontainer.json`). The CLI runs in the
+container but the stack is created by the host's Docker daemon and published on
+the host's loopback; without a shared network namespace the CLI's health check
+hits an empty `127.0.0.1:54322`, fails with `ECONNREFUSED`, and stops the stack
+it just started. If you ever see that error, check that `runArgs` is still there
+and rebuild the container.
+
 ### 3. Environment variables
 
 ```bash

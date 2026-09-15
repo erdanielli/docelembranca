@@ -52,11 +52,28 @@
 
   "postCreateCommand": "bash .devcontainer/post-create.sh",
 
-  "forwardPorts": [5173, 54321, 54323],
+  // Share the host's network namespace. Required by the local Supabase stack:
+  // with docker-outside-of-docker above, `supabase start` asks the HOST daemon
+  // to create the stack, which publishes on the host's 127.0.0.1:54321-54324.
+  // In its own namespace this container's 127.0.0.1 is empty, so the CLI's
+  // health check failed with ECONNREFUSED on 54322 and tore the stack down.
+  // Sharing the namespace makes one localhost for both sides, so `supabase
+  // start`, `supabase test db --local`, `gen types --local` and `npm run dev`
+  // all work here and stay reachable from the host browser, which is what the
+  // constitution's devcontainer rule is for. Host-only, no isolation: a port
+  // this container binds is bound on the host.
+  "runArgs": ["--network=host"],
+
+  // Redundant under host networking (these ports are already on the host), but
+  // kept so the set of ports this project uses stays documented, and so the
+  // setup still works if host networking is ever dropped.
+  "forwardPorts": [5173, 54321, 54322, 54323, 54324],
   "portsAttributes": {
     "5173": { "label": "Vite dev server" },
     "54321": { "label": "Supabase API (local)" },
-    "54323": { "label": "Supabase Studio (local)" }
+    "54322": { "label": "Supabase Postgres (local)" },
+    "54323": { "label": "Supabase Studio (local)" },
+    "54324": { "label": "Supabase Mailpit (local)" }
   },
 
   "customizations": {
