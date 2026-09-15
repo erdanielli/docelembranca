@@ -1,0 +1,106 @@
+# Implementation Plan: Order Costing & Pricing
+
+**Branch**: `001-order-costing-pricing` | **Date**: 2026-09-15 | **Spec**: [spec.md](./spec.md)
+
+**Input**: Feature specification from `/specs/001-order-costing-pricing/spec.md`
+
+## Summary
+
+The confectioner needs an accurate, real-time way to price party-sweet orders. This feature adds: (1) an agnostic catalog of Ingredients, Materials, and Recipes with commercial Size Variants; (2) a batch-tracked Stock/shelf that links real market products to catalog items, including a quick bulk-pack entry mode; (3) an Order flow that computes ingredient/material cost in real time from the cheapest and soonest-expiring Stock Batches (falling back to user-estimated Future/Pending Stock when nothing covers a need), adds labor cost, per-recipe profit %, and an order-level discount % to produce a final price; and (4) a six-status Order lifecycle (Awaiting Quote → Quoting/Budgeting → Awaiting Production → In Production → Awaiting Consolidation → Consolidated, plus Canceled) with stock reservation, consolidation of real consumption, and a full, immutable status-change history.
+
+Technical approach: this stays within the existing static Vite + React + TypeScript frontend backed by Supabase Postgres (Principle II). Real-time cost calculation is pure client-side TypeScript operating on already-fetched catalog/stock data (no per-keystroke round trip). Operations that must be atomic and consistent — reserving stock at Budgeting, releasing it on cancellation, and consolidating actual consumption — are implemented as Postgres RPC functions (`supabase.rpc(...)`) rather than multi-step client-side writes, keeping the "backend" entirely inside Supabase per Principle II while avoiding partial-write bugs.
+
+## Technical Context
+
+**Language/Version**: TypeScript 5.5 (strict mode), React 18.3, targeting ES2020 (existing `tsconfig.json`)
+
+**Primary Dependencies**: React 18.3, Vite 5.4, `@supabase/supabase-js` 2.45 (all already in the project). New dev dependencies for this feature: Vitest 5.0, `@testing-library/react` 16.3, `@testing-library/jest-dom` 7.0, `jsdom` 30.0 — versions confirmed current as of 2026-09-15 (see research.md). No new runtime dependency is introduced (no state-management or data-fetching library, no UI kit) — plain React state/hooks and `supabase-js` are sufficient for this feature's scope (Principle IV).
+
+**Storage**: Supabase Postgres, via new migrations under `supabase/migrations/`. No Supabase Storage bucket is needed for this feature (no file/photo uploads in scope).
+
+**Testing**: Vitest + React Testing Library for component and pure-logic (costing engine, unit conversion) unit tests. Postgres RPC functions and RLS policies are tested directly in the database with pgTAP, run via `supabase test db` (decision revised with the user; see research.md).
+
+**Target Platform**: Static GitHub Pages build, used from a mobile browser styled to feel iOS-native (Principle IX), single authorized user (`giselypasquini@gmail.com`).
+
+**Project Type**: Single-project web frontend (no `backend/` directory — Supabase is the only backend, per Principle II).
+
+**Performance Goals**: Order budget recalculation reflects any input change (quantity, variant, material override, labor/profit/discount) instantly (no perceptible delay) because it runs entirely client-side over data already loaded for the Order.
+
+**Constraints**: Static hosting only, no custom server (Principle II); single user, so no multi-tenant/authorization complexity beyond the existing RLS-gated single email (Principle III); offline use is not required.
+
+**Scale/Scope**: Single user; expected data volumes are small (tens of Ingredients/Materials/Recipes, tens of Stock Batches, a handful of open Orders at a time) — no performance engineering beyond straightforward indexed Postgres queries is warranted.
+
+## Constitution Check
+
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+
+| Principle | Check | Status |
+|---|---|---|
+| I. Test-First (NON-NEGOTIABLE) | Every new component, the costing/unit-conversion logic, and every Postgres RPC function/RLS policy gets a failing test before implementation (Vitest+RTL for frontend, pgTAP for RPC/RLS tested directly in Postgres). Enforced task-by-task in `/speckit-tasks`. | PASS |
+| II. Serverless, Static-First | No new backend/service introduced. Stock reservation/consolidation logic lives in Postgres functions (Supabase-native), not a custom server. | PASS |
+| III. RLS Is the Only Real Access Control (NON-NEGOTIABLE) | Every new table (customers, ingredients, materials, recipes, recipe_size_variants, recipe_variant_ingredients, recipe_variant_materials, stock_products, stock_batches, future_stock_placeholders, orders, order_recipe_lines, order_recipe_line_material_overrides, order_stock_reservations, order_stock_consumptions, order_status_history) ships with RLS enabled and a policy restricting to the single allowed user, in the same migration that creates it. A shared `is_allowed_user()` SQL helper avoids duplicating the policy expression (see data-model.md). | PASS |
+| IV. Simplicity and YAGNI | No new UI kit, state-management, or data-fetching library. Bulk-pack entry is a UI-only convenience (computes a value before a normal insert), not a new table. Every table maps directly to an FR/Key Entity in spec.md — no speculative structures. | PASS |
+| V. Strict Type Safety | TypeScript types for the schema are generated via `supabase gen types typescript` rather than hand-written/`any`; costing engine functions are fully typed. | PASS (enforced in tasks) |
+| VI. Language Split | Schema identifiers, code, comments, and this plan/spec are en_US; all user-facing pt_BR strings are deferred to implementation and require Eduardo's consent before shipping, per the Development Workflow section. | PASS |
+| VII. Human-Friendly, Maintainable Code | Costing/priority-selection logic will be broken into small, named pure functions; guard clauses over nested conditionals (max 2 levels), enforced at review/implementation time. | PASS (design intent; enforced in tasks/review) |
+| VIII. Latest Stack | New dev dependencies pinned to current latest stable as of 2026-09-15 (Vitest 5.0.x, RTL 16.3.x, jest-dom 7.0.x, jsdom 30.0.x); existing React/Vite/supabase-js versions are unchanged by this feature (a broader upgrade is out of this feature's scope). | PASS |
+| IX. iOS-Native Look and Feel | New screens (catalog forms, stock/shelf views, Order budgeting wizard, status timeline) reuse `src/ios.css` conventions; no new visual language introduced. | PASS (enforced in tasks) |
+| X. Deliberate Tool Selection with Consent Gate | The testing stack was researched (Vitest+RTL vs. adding pgTAP) and presented to Eduardo. He initially chose Vitest+RTL only (RPC/RLS via supabase-js integration tests), then reconsidered: testing the database directly matters, so pgTAP is adopted for RPC/RLS testing alongside Vitest+RTL for the frontend. | PASS |
+| XI. Follow and Document Per-Stack Best Practices | This plan's research.md records the conventions adopted (RLS helper pattern, RPC-for-atomicity pattern, unit-conversion approach, testing approach); a task in `/speckit-tasks` must fold these into a durable conventions reference (e.g. `docs/conventions.md`), not leave them implicit in code only. | PASS (tracked as a task) |
+
+No violations requiring justification — Complexity Tracking is not needed for this plan.
+
+**Post-Phase-1 re-check**: data-model.md's ~15 tables, the four RPC contracts, and the client costing-engine contract were reviewed against every principle above after design — no new violations were introduced (every table maps to an FR/Key Entity per Principle IV; every table's RLS policy is specified via the shared helper per Principle III; no additional dependency beyond the already-consented testing stack was introduced per Principle X). Constitution Check remains PASS.
+
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/001-order-costing-pricing/
+├── plan.md              # This file (/speckit-plan command output)
+├── research.md          # Phase 0 output (/speckit-plan command)
+├── data-model.md         # Phase 1 output (/speckit-plan command)
+├── quickstart.md        # Phase 1 output (/speckit-plan command)
+├── contracts/           # Phase 1 output (/speckit-plan command)
+└── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)
+```
+
+### Source Code (repository root)
+
+```text
+src/
+├── lib/
+│   ├── supabaseClient.ts        # existing
+│   ├── database.types.ts        # generated via `supabase gen types typescript`
+│   ├── units/                   # unit-of-measure conversion (mass/volume/count)
+│   └── costing/                 # pure functions: scale recipe qty, batch priority
+│                                 # selection, cost/profit/discount breakdown
+├── features/
+│   ├── catalog/                 # Ingredients, Materials, Recipes, Size Variants CRUD
+│   ├── stock/                   # Stock Products, Batches, bulk-pack entry, future stock
+│   ├── customers/                # Customer registry + order history lookup
+│   └── orders/                  # Order wizard across the 6-status lifecycle,
+│                                 # budgeting UI, status history timeline
+├── components/                  # existing + new shared UI (e.g. LoginGate)
+├── App.tsx, main.tsx, ios.css   # existing
+└── vite-env.d.ts                # existing
+
+supabase/
+├── migrations/                  # new migrations: tables above + RPC functions + `pgtap` extension
+│   # (reserve_stock_for_order, release_reserved_stock, consolidate_order_stock,
+│   #  transition_order_status) each with RLS enabled in its creating migration
+└── tests/
+    └── database/                 # pgTAP test files (*.sql), run via `supabase test db`
+                                  # (RPC functions, RLS policies — tested directly in Postgres)
+
+tests/
+├── unit/                        # costing/units pure-function tests (Vitest)
+└── components/                  # React Testing Library component tests
+```
+
+**Structure Decision**: Single Vite/React project (no `backend/`) since Supabase is the only backend (Principle II). New domain logic is grouped under `src/features/<domain>` (catalog, stock, customers, orders) with shared pure logic in `src/lib/costing` and `src/lib/units`, mirroring the feature's four independently-testable user stories (P1–P4). Database logic that must be atomic lives in Postgres functions under `supabase/migrations/`, tested directly against the database with pgTAP from `supabase/tests/database/` (`supabase test db`) rather than indirectly through the JS client.
+
+## Complexity Tracking
+
+*No Constitution Check violations — table intentionally omitted.*
