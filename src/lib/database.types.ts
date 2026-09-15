@@ -34,16 +34,213 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ingredients: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          unit: Database["public"]["Enums"]["unit_of_measure"]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          unit: Database["public"]["Enums"]["unit_of_measure"]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          unit?: Database["public"]["Enums"]["unit_of_measure"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      materials: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          unit: Database["public"]["Enums"]["unit_of_measure"]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          unit: Database["public"]["Enums"]["unit_of_measure"]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          unit?: Database["public"]["Enums"]["unit_of_measure"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      recipe_size_variants: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          recipe_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          recipe_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          recipe_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_size_variants_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_variant_ingredients: {
+        Row: {
+          amount: number
+          id: string
+          ingredient_id: string
+          variant_id: string
+        }
+        Insert: {
+          amount: number
+          id?: string
+          ingredient_id: string
+          variant_id: string
+        }
+        Update: {
+          amount?: number
+          id?: string
+          ingredient_id?: string
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_variant_ingredients_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_variant_ingredients_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "recipe_size_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_variant_materials: {
+        Row: {
+          amount: number
+          id: string
+          material_id: string
+          variant_id: string
+        }
+        Insert: {
+          amount: number
+          id?: string
+          material_id: string
+          variant_id: string
+        }
+        Update: {
+          amount?: number
+          id?: string
+          material_id?: string
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_variant_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_variant_materials_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "recipe_size_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipes: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      convert_unit: {
+        Args: {
+          p_from: Database["public"]["Enums"]["unit_of_measure"]
+          p_to: Database["public"]["Enums"]["unit_of_measure"]
+          p_value: number
+        }
+        Returns: number
+      }
+      is_allowed_user: { Args: never; Returns: boolean }
+      unit_dimension: {
+        Args: { p_unit: Database["public"]["Enums"]["unit_of_measure"] }
+        Returns: string
+      }
+      unit_factor: {
+        Args: { p_unit: Database["public"]["Enums"]["unit_of_measure"] }
+        Returns: number
+      }
     }
     Enums: {
-      [_ in never]: never
+      unit_of_measure: "mg" | "g" | "kg" | "ml" | "l" | "un"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -173,7 +370,9 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      unit_of_measure: ["mg", "g", "kg", "ml", "l", "un"],
+    },
   },
 } as const
 
