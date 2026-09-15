@@ -58,7 +58,7 @@ local stack instead:
 
 ```bash
 supabase start          # first run pulls ~12 images
-supabase test db        # pgTAP: RPCs, views, triggers, RLS policies
+npm run test:db         # pgTAP: RPCs, views, triggers, RLS policies
 npm run gen:types       # regenerate src/lib/database.types.ts from the local schema
 supabase migration up   # apply supabase/migrations/ locally
 supabase stop           # free the containers when done (--no-backup to discard data)

@@ -58,7 +58,7 @@
   // In its own namespace this container's 127.0.0.1 is empty, so the CLI's
   // health check failed with ECONNREFUSED on 54322 and tore the stack down.
   // Sharing the namespace makes one localhost for both sides, so `supabase
-  // start`, `supabase test db --local`, `gen types --local` and `npm run dev`
+  // start`, `npm run test:db`, `gen types --local` and `npm run dev`
   // all work here and stay reachable from the host browser, which is what the
   // constitution's devcontainer rule is for. Host-only, no isolation: a port
   // this container binds is bound on the host.

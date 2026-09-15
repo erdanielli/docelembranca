@@ -18,7 +18,7 @@ The local stack is for tests and type generation only; the hosted project stays 
 npm run lint      # must pass
 npm run build     # must pass (tsc -b && vite build)
 npm test          # Vitest: unit (src/lib/costing, src/lib/units) + component (RTL)
-supabase test db  # pgTAP: RPCs, views, triggers, and RLS policies, tested inside Postgres
+npm run test:db   # pgTAP: RPCs, views, triggers, and RLS policies, tested inside Postgres
 ```
 
 ## Manual validation scenarios

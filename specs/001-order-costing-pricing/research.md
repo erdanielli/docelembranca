@@ -2,9 +2,13 @@
 
 ## 1. Testing stack
 
-**Decision**: Vitest 5.0.x + `@testing-library/react` 16.3.x + `@testing-library/jest-dom` 7.0.x + `jsdom` 30.0.x for component and pure-logic unit tests. Postgres RPC functions and RLS policies are tested directly in the database with **pgTAP**, run via `supabase test db` against SQL test files under `supabase/tests/database/`.
+**Decision**: Vitest 5.0.x + `@testing-library/react` 16.3.x + `@testing-library/jest-dom` 7.0.x + `jsdom` 30.0.x for component and pure-logic unit tests. Postgres RPC functions and RLS policies are tested directly in the database with **pgTAP**, run by `pg_prove` (via `npm run test:db`) against SQL test files under `supabase/tests/database/` — see §11 for why not `supabase test db`.
 
 **Rationale**: The project has zero test tooling today, and Principle I (TDD, non-negotiable) requires coverage for every layer, UI and data/logic alike. Vitest is Vite-native (no separate transform config needed) and is explicitly the kind of "latest, deliberately chosen" tool Principle VIII calls for. This was presented to Eduardo as a consent-gated tech-stack decision (Principle X) with two options — Vitest+RTL+pgTAP vs. Vitest+RTL only with RPC/RLS covered via `supabase-js` integration tests against a local Supabase stack. He initially chose the latter, then reconsidered: testing the database directly matters more here than testing it indirectly through the JS client, since RLS (Principle III, non-negotiable) is the app's *only* real access-control boundary — a policy bug that a client-level integration test happens not to exercise (e.g., a missing `WITH CHECK` clause, or a policy that only fails under a specific role) is exactly the kind of thing pgTAP, running assertions inside Postgres itself, is built to catch precisely. Final decision: pgTAP for RPC/RLS, Vitest+RTL for the frontend.
+
+**Versions confirmed against the npm registry on 2026-09-15** (task T001): `vitest` 5.0.1, `@testing-library/react` 16.3.3, `@testing-library/jest-dom` 7.0.1, `jsdom` 30.0.1. Two things the first pass missed: `@testing-library/react` 16 declares `@testing-library/dom` ^10 as a **non-optional** peer, so 10.4.2 is installed explicitly; and the repository had no ESLint config or dependency at all, so `npm run lint` — a Development Workflow gate — could never have passed. ESLint 10 with `typescript-eslint` 8.70 and the React hooks/refresh plugins was added in flat-config form to close that.
+
+Tests run with `globals: false`: each test imports `describe`/`it`/`expect` from `vitest`, which keeps TypeScript and ESLint honest without ambient declarations or an extra lint plugin.
 
 **Alternatives considered**:
 - *Jest*: mature, but requires extra config to work with Vite's ESM/TS pipeline that Vitest gets for free; no advantage over Vitest here.
@@ -53,7 +57,11 @@ See §7 for how the two halves meet: the client previews the batch selection, th
 
 ## 6. Existing dependency versions (React, Vite, supabase-js)
 
-**Observation (not a decision for this feature)**: `package.json` currently pins React 18.3.1, Vite 5.4.1, and `@supabase/supabase-js` 2.45.4. Principle VIII calls for proactively tracking latest stable versions, but upgrading these is an independent, cross-cutting concern that affects the whole app (e.g., `LoginGate`), not something this costing/pricing feature should bundle in as a side effect. Left out of this feature's scope; flagged here so it isn't silently forgotten.
+**Superseded — the upgrade turned out to be a prerequisite, and was taken.** The original note said React 18.3.1 / Vite 5.4.1 / supabase-js 2.45.4 should eventually be updated under Principle VIII, but that doing so was out of this feature's scope. Installing the testing stack proved otherwise: **Vitest 5 requires `vite ^6.4 || ^7 || ^8`**, and even Vitest 4 requires Vite ≥ 6, so the last Vite-5-compatible runner is Vitest 3 — two majors behind on day one, which is exactly what Principle VIII exists to prevent. Presented to Eduardo with three options (full current stack / Vite only / keep the app stack and pin an older Vitest); he chose the full upgrade.
+
+Adopted: Node 24.21 (the devcontainer already declared `typescript-node:24-bookworm` but had been built from a stale cached layer holding Node 22.16, which is also below `jsdom` 30's floor of `^22.22.2 || ^24.15.0`), Vite 8.3, `@vitejs/plugin-react` 6.1, React and React DOM 19.3, `@supabase/supabase-js` 2.116. The app itself needed no code changes: `main.tsx` already used `createRoot`, and nothing used `React.FC`, `defaultProps`, or `propTypes`. `npm run build` and `npm run lint` both pass on the new stack.
+
+**TypeScript stays on 5.x.** TypeScript 7.0 is current, but `typescript-eslint` 8.70 declares `typescript: >=4.8.4 <6.1.0`, so adopting it now would break linting. That is a separate decision for a later feature, recorded here rather than silently skipped.
 
 ## 7. Live preview vs. authoritative reservation
 
@@ -97,3 +105,16 @@ See §7 for how the two halves meet: the client previews the batch selection, th
 
 **Alternatives considered**:
 - *Run pgTAP against the hosted Supabase project*: destructive tests against the only real database, with no staging environment to absorb mistakes. Rejected outright.
+
+## 11. Running pgTAP from the devcontainer
+
+**Decision**: the pgTAP suite is run by `pg_prove` directly against the local database (`npm run test:db`), with `postgresql-client` and `libtap-parser-sourcehandler-pgtap-perl` installed in the devcontainer image. `supabase test db` is not used.
+
+**Rationale**: `supabase test db` runs pg_prove inside a container it creates through the host's Docker daemon, bind-mounting the tests directory by the path it sees. In this devcontainer that path is `/IdeaProjects/docelembranca/supabase/tests`, while the project actually lives at `/home/liberty/code/docelembranca` on the host. Docker created the missing host path as empty directories and mounted those, so every run reported `no pgTAP tests found` with `Files=0` — a silent, pass-shaped failure, which is the worst possible behaviour for a test runner under a test-first constitution. Driving `pg_prove` from inside the container removes the indirection: it connects to `127.0.0.1:54322` (reachable thanks to the shared network namespace, §10) and reads the test files from the filesystem it is already running on, so no path translation happens anywhere.
+
+**Alternatives considered**:
+- *A host-side symlink from `/IdeaProjects/docelembranca` to the real project path*: one line, and it keeps `supabase test db` working, but it fixes the machine rather than the repository — a fresh clone, a second checkout, or another machine would each need the same manual step, with nothing in the repo to say so.
+- *Aligning the paths with `workspaceMount`/`workspaceFolder` in devcontainer.json*: the general fix for this class of problem, but it depends on the IDE honouring those keys, and it would move the in-container project path, which also rekeys per-project tooling state that is addressed by path.
+- *Piping each test file into `psql` via `docker exec`*: no new packages, but it gives up TAP parsing, so a failing assertion would have to be found by grepping output.
+
+**Note**: the runner is `pg_prove --recurse --ext .sql supabase/tests`; `--ext` is required, since pg_prove's recursive search otherwise looks for its default `.t` extension and silently finds nothing.

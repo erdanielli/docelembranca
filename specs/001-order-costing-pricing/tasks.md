@@ -34,18 +34,18 @@ Single Vite/React project (no `backend/`) per plan.md's Project Structure:
 
 **Purpose**: Stand up the testing stack and the local Supabase stack this feature is the first to need (research.md §1, §10) before any test-first task can run.
 
-- [ ] T001 Verify against the npm registry that the majors named in research.md §1 (Vitest 5.0.x, `@testing-library/react` 16.3.x, `@testing-library/jest-dom` 7.0.x, `jsdom` 30.0.x) are still the current stable releases; record the confirmed versions in `specs/001-order-costing-pricing/research.md` §1 and raise any difference with Eduardo before pinning (Principles VIII and X)
-- [ ] T002 Add the four devDependencies from T001 to `package.json` at the confirmed versions
-- [ ] T003 [P] Create `vitest.config.ts` at repo root: `test.environment = "jsdom"`, `test.globals = true`, `test.setupFiles = ["tests/setup.ts"]`
-- [ ] T004 [P] Create `tests/setup.ts` importing `@testing-library/jest-dom/vitest`
-- [ ] T005 Add `"test": "vitest run"` and `"gen:types": "supabase gen types typescript --local > src/lib/database.types.ts"` scripts to `package.json`
+- [x] T001 Verify against the npm registry that the majors named in research.md §1 (Vitest 5.0.x, `@testing-library/react` 16.3.x, `@testing-library/jest-dom` 7.0.x, `jsdom` 30.0.x) are still the current stable releases; record the confirmed versions in `specs/001-order-costing-pricing/research.md` §1 and raise any difference with Eduardo before pinning (Principles VIII and X)
+- [x] T002 Add the four devDependencies from T001 to `package.json` at the confirmed versions
+- [x] T003 [P] Create `vitest.config.ts` at repo root: `test.environment = "jsdom"`, `test.globals = true`, `test.setupFiles = ["tests/setup.ts"]`
+- [x] T004 [P] Create `tests/setup.ts` importing `@testing-library/jest-dom/vitest`
+- [x] T005 Add `"test": "vitest run"` and `"gen:types": "supabase gen types typescript --local > src/lib/database.types.ts"` scripts to `package.json`
 - [x] T006 Run `supabase init` and commit the generated `supabase/config.toml` — the repo has none today, so `supabase test db`, `supabase start`, and `gen types --local` cannot run at all until this lands (research.md §10)
-- [ ] T007 Add `"runArgs": ["--network=host"]` to `.devcontainer/devcontainer.json` and rebuild the container, then bring the local stack up with `supabase start`, confirm the API (54321) and Studio (54323) are reachable from the host browser, and document the local-database commands in a "Local database (tests)" section of `README.md`, keeping the hosted `supabase link` + `db push` flow as the deployment path (research.md §10 — without the shared network namespace the CLI health-checks an empty loopback and stops the stack it started)
-- [ ] T008 Run `supabase migration new enable_pgtap` and enable the `pgtap` extension in the generated `supabase/migrations/<timestamp>_enable_pgtap.sql`
-- [ ] T009 Create `supabase/tests/database/000_sanity.test.sql`: a one-assertion pgTAP smoke test (`has_extension('pgtap')`) proving `supabase test db` is wired up; confirm it passes after T008
-- [ ] T010 Run `npm run gen:types` against the local stack to confirm the T005 script writes `src/lib/database.types.ts` before any feature table exists
+- [x] T007 Add `"runArgs": ["--network=host"]` to `.devcontainer/devcontainer.json` and rebuild the container, then bring the local stack up with `supabase start`, confirm the API (54321) and Studio (54323) are reachable from the host browser, and document the local-database commands in a "Local database (tests)" section of `README.md`, keeping the hosted `supabase link` + `db push` flow as the deployment path (research.md §10 — without the shared network namespace the CLI health-checks an empty loopback and stops the stack it started)
+- [x] T008 Run `supabase migration new enable_pgtap` and enable the `pgtap` extension in the generated `supabase/migrations/<timestamp>_enable_pgtap.sql`
+- [x] T009 Create `supabase/tests/database/000_sanity.test.sql`: a one-assertion pgTAP smoke test (`has_extension('extensions', 'pgtap')`) proving the harness is wired up, and add the `test:db` script that runs `pg_prove` against the local database; confirm it passes after T008 (research.md §11 — `supabase test db` cannot reach the tests from this container)
+- [x] T010 Run `npm run gen:types` against the local stack to confirm the T005 script writes `src/lib/database.types.ts` before any feature table exists
 
-**Checkpoint**: `npm test` and `supabase test db` are both runnable, against a local stack that exists, before any feature code is written.
+**Checkpoint**: `npm test` and `npm run test:db` are both runnable, against a local stack that exists, before any feature code is written.
 
 ---
 
@@ -263,7 +263,7 @@ Single Vite/React project (no `backend/`) per plan.md's Project Structure:
 
 - [ ] T137 [P] Write `docs/conventions.md` documenting the conventions this feature establishes: the `is_allowed_user()` RLS helper, RPC-for-atomicity, `security_invoker` on every view, canonical amounts vs. package counts, the mirrored `convert`/`convert_unit` and `selectBatchesForNeed`/`ORDER BY` pairs and how their shared fixtures keep them honest, and the Vitest/pgTAP split (Constitution Principle XI)
 - [ ] T138 Collect every pt_BR string introduced across T035–T136 into `docs/ui-strings.md` and present it to Eduardo for consent before shipping (Constitution VI / Development Workflow) — a review checkpoint, not code
-- [ ] T139 Run `npm run lint`, `npm run build`, `npm test`, and `supabase test db`; fix any failures (Development Workflow gate)
+- [ ] T139 Run `npm run lint`, `npm run build`, `npm test`, and `npm run test:db`; fix any failures (Development Workflow gate)
 - [ ] T140 Execute quickstart.md's four manual validation scenarios end to end against the local stack, recording the outcome on the feature PR and folding any deviation back into `specs/001-order-costing-pricing/quickstart.md`
 
 ---
