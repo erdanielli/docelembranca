@@ -39,6 +39,13 @@
     // line or run `claude login` once inside the container first.
     "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind,z",
 
+    // GitHub CLI credentials. Without this the token lives only in the
+    // container layer, so every rebuild silently logs `gh` out again — git
+    // itself keeps working over SSH, which makes the logout easy to miss
+    // until a `gh pr` call fails. If ~/.config/gh does not exist on the host
+    // yet, run `gh auth login` once (see the Mounts caveats in README.md).
+    "source=${localEnv:HOME}/.config/gh,target=/home/node/.config/gh,type=bind,z",
+
     // Claude Code also keeps onboarding/session state in a top-level
     // ~/.claude.json file, separate from the .claude/ folder above.
     // Without this, the container looks "unconfigured" to Claude even
