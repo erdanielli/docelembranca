@@ -11,7 +11,10 @@ GitHub Pages, backed by Supabase (Postgres + Auth + Storage).
 - **Dev environment**: devcontainer (IntelliJ IDEA via JetBrains Gateway),
   Docker-outside-of-docker, Claude Code, GitHub Spec Kit, Supabase CLI
 
-## First-time setup
+## Setup
+
+Already done for this project — kept here as reference in case the
+devcontainer needs to be rebuilt or reopened on another machine.
 
 ### 1. Open in the devcontainer
 
@@ -75,15 +78,13 @@ npm run dev
 ## GitHub Spec Kit
 
 This project uses [Spec Kit](https://github.com/github/spec-kit) for
-spec-driven development. Inside the container:
+spec-driven development. Already initialized and validated in this repo
+(`specify init`, `specify check`) — no need to redo that.
 
-```bash
-specify init --here --integration claude   # first time only
-specify check
-```
-
-Then use Spec Kit's slash commands with Claude Code (`/specify`, `/plan`,
-`/tasks`, etc.) to drive feature work from specs.
+Use Spec Kit's slash commands with Claude Code (`/speckit-specify`,
+`/speckit-plan`, `/speckit-tasks`, `/speckit-implement`, etc.) to drive
+feature work from specs. The project's governing principles live in
+`.specify/memory/constitution.md`.
 
 ## Claude Code
 
