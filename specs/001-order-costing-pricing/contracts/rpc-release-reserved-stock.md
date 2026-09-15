@@ -1,6 +1,6 @@
 # Contract: `release_reserved_stock` (Postgres RPC)
 
-Called when an Order is canceled (FR-036) or when a Recipe line is removed/edited enough to need its reservations rebuilt.
+Called when an Order is canceled (FR-036), and internally by `reserve_stock_for_order` when a line's reservations must be rebuilt.
 
 ## Invocation
 
@@ -13,11 +13,12 @@ const { data, error } = await supabase.rpc('release_reserved_stock', {
 ## Behavior
 
 For every `order_stock_reservations` row belonging to any `order_recipe_lines` row of the given Order:
-1. If it references a `stock_batches` row, no `quantity_remaining` adjustment is needed (reservations do not decrement `quantity_remaining` directly — see note below) — the reservation row is simply deleted, freeing that quantity for other Orders' `reserve_stock_for_order` calls.
-2. If it references a `future_stock_placeholders` row, the placeholder row is deleted along with the reservation, unless it has already been `resolved_stock_batch_id`-linked (in which case only the reservation is removed).
+
+1. The reservation row is deleted. No `stock_batches.remaining_amount` adjustment is needed or wanted (see the note below) — deleting the row is itself what frees the amount for other Orders.
+2. If it referenced a `future_stock_placeholders` row, that placeholder is deleted too, unless it has already been resolved (`resolved_stock_batch_id IS NOT NULL`), in which case it is kept as a record of what was estimated and what was eventually bought.
 3. All deletions happen in a single transaction.
 
-**Note on `quantity_remaining`**: `stock_batches.quantity_remaining` is only decremented by `consolidate_order_stock` (real consumption), never by reservation. Reservations are tracked separately (`order_stock_reservations`) and `reserve_stock_for_order` treats a Batch's *available* quantity as `quantity_remaining` minus the sum of other Orders' active reservations against it, so releasing a reservation here requires no compensating update to `stock_batches` itself.
+**Note on amounts**: `stock_batches.remaining_amount` is decremented only by `consolidate_order_stock`, when stock is really used. Reservations live in their own table, and `stock_batch_availability.available_amount` is defined as `remaining_amount` minus the reservations of **still-active** Orders (`quoting`, `awaiting_production`, `in_production`, `awaiting_consolidation`). So releasing a reservation needs no compensating write, and an Order leaving the active set — by cancellation here, or by reaching `consolidated` after its real consumption was deducted — stops holding stock automatically, with no double counting either way.
 
 ## Output
 
