@@ -36,7 +36,7 @@ supabase db push   # applies migrations under supabase/migrations/
 
 Add migration files under `supabase/migrations/` as the schema grows. Any
 table or storage bucket you add should be locked down with Row Level
-Security policies restricting access to `erdanielli@gmail.com` — **that RLS
+Security policies restricting access to `giselypasquini@gmail.com` — **that RLS
 policy is the actual access control**, since the frontend's email check
 (`LoginGate`) is only a UX nicety and anyone can read the client-side JS.
 

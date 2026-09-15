@@ -4,9 +4,9 @@ import { supabase } from "../lib/supabaseClient";
 
 // Client-side check only — a nice UX shortcut, not real security.
 // The actual enforcement must live in Supabase Row Level Security
-// policies (e.g. `auth.email() = 'erdanielli@gmail.com'`), since anyone
+// policies (e.g. `auth.email() = 'giselypasquini@gmail.com'`), since anyone
 // can read this source in the browser.
-const ALLOWED_EMAIL = "erdanielli@gmail.com";
+const ALLOWED_EMAIL = "giselypasquini@gmail.com";
 
 export function LoginGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
