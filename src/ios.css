@@ -135,3 +135,38 @@ input {
   margin: 0 0 20px;
   line-height: 1.4;
 }
+
+.tabpanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.tabbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  background: rgba(23, 16, 24, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 0.5px solid var(--separator);
+  padding-bottom: var(--safe-bottom);
+}
+
+.tabbar__tab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  padding: 10px 4px 8px;
+}
+
+.tabbar__tab--active {
+  color: var(--accent);
+  font-weight: 600;
+}

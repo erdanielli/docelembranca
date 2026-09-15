@@ -8,7 +8,7 @@
 
 **Versions confirmed against the npm registry on 2026-09-15** (task T001): `vitest` 5.0.1, `@testing-library/react` 16.3.3, `@testing-library/jest-dom` 7.0.1, `jsdom` 30.0.1. Two things the first pass missed: `@testing-library/react` 16 declares `@testing-library/dom` ^10 as a **non-optional** peer, so 10.4.2 is installed explicitly; and the repository had no ESLint config or dependency at all, so `npm run lint` — a Development Workflow gate — could never have passed. ESLint 10 with `typescript-eslint` 8.70 and the React hooks/refresh plugins was added in flat-config form to close that.
 
-Tests run with `globals: false`: each test imports `describe`/`it`/`expect` from `vitest`, which keeps TypeScript and ESLint honest without ambient declarations or an extra lint plugin.
+Tests run with `globals: false`: each test imports `describe`/`it`/`expect` from `vitest`, which keeps TypeScript and ESLint honest without ambient declarations or an extra lint plugin. The trade-off is that React Testing Library's automatic cleanup no longer registers itself — it looks for an injected global `afterEach` — so `tests/setup.ts` calls `cleanup()` explicitly. Without it every `render` stacks onto the previous test's DOM and queries start matching duplicates, which the first component test caught immediately.
 
 **Alternatives considered**:
 - *Jest*: mature, but requires extra config to work with Vite's ESM/TS pipeline that Vitest gets for free; no advantage over Vitest here.
