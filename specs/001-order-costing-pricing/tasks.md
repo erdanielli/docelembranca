@@ -5,6 +5,8 @@ description: "Task list template for feature implementation"
 
 # Tasks: Order Costing & Pricing
 
+> **⚠️ STALE — regenerate before implementing.** This task list was generated against the first version of the design. After `/speckit-analyze`, spec.md, plan.md, data-model.md, contracts/ and quickstart.md were revised (canonical-unit stock accounting, client-side cost preview with RPC-on-save, the `resolve_future_stock` path, coverage views, the Order-creation history entry) and six implementation tasks here have no paired test, violating Principle I. Run `/speckit-tasks` to regenerate, then `/speckit-taskstoissues`.
+
 **Input**: Design documents from `/specs/001-order-costing-pricing/`
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md

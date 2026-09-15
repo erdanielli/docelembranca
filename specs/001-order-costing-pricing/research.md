@@ -17,9 +17,11 @@
 
 **Rationale**: FR-021 requires the cost breakdown to update in real time as the user edits quantities, variants, material overrides, labor, profit %, or discount % — a network round trip per keystroke would violate the "instant" feel Principle IX expects from an iOS-native UI. Pure client-side calculation avoids that entirely. Conversely, FR-031/FR-033/FR-036 (reserve, consolidate, release stock) touch multiple `stock_batches` rows and must not partially apply; Postgres functions running in a single transaction are the Supabase-native way to guarantee that (Principle II explicitly prefers Postgres functions/triggers over introducing a custom server for exactly this kind of need).
 
+See §7 for how the two halves meet: the client previews the batch selection, the RPC commits it.
+
 **Alternatives considered**:
 - *All calculation in Postgres (a "get quote" RPC called on every edit)*: rejected — reintroduces per-keystroke latency and network dependency for what is otherwise pure arithmetic.
-- *All mutations done as sequential client-side `update` calls*: rejected — a dropped connection between two `update` calls could leave a Batch's `quantity_remaining` reserved without the Order recording it (or vice versa), corrupting stock accuracy, which is the feature's core value proposition.
+- *All mutations done as sequential client-side `update` calls*: rejected — a dropped connection between two `update` calls could leave a Batch's remaining amount reserved without the Order recording it (or vice versa), corrupting stock accuracy, which is the feature's core value proposition.
 
 ## 3. Unit-of-measure conversion
 
@@ -52,3 +54,44 @@
 ## 6. Existing dependency versions (React, Vite, supabase-js)
 
 **Observation (not a decision for this feature)**: `package.json` currently pins React 18.3.1, Vite 5.4.1, and `@supabase/supabase-js` 2.45.4. Principle VIII calls for proactively tracking latest stable versions, but upgrading these is an independent, cross-cutting concern that affects the whole app (e.g., `LoginGate`), not something this costing/pricing feature should bundle in as a side effect. Left out of this feature's scope; flagged here so it isn't silently forgotten.
+
+## 7. Live preview vs. authoritative reservation
+
+**Decision**: The Order Budgeting screen previews batch selection **client-side** and commits it **server-side**. A pure `selectBatchesForNeed` in `src/lib/costing` applies FR-022's ordering (not expired; expiring within 15 days first, cheapest within each group) to the `stock_batch_availability` rows already loaded for the Order, so the cost breakdown redraws with zero network latency as the user edits quantity, variant, overrides, labor, profit %, or discount. When the line is **saved**, `reserve_stock_for_order` runs the same ordering inside Postgres and its result replaces the preview. The RPC is always the authority; the preview never writes anything.
+
+**Rationale**: Presented to Eduardo as an architecture decision (Principle X) after a cross-artifact analysis found the original design self-contradictory: `computeLineCost` read its prices from `reserve_stock_for_order`'s output, which would have meant a round trip per edit — exactly what plan.md, research.md §2, and quickstart.md all promised would not happen, and what Principle IX's native feel rules out. He chose mirroring over dropping the promise. The cost is one rule expressed twice (TypeScript and SQL), the same trade-off already accepted for `convert` / `convert_unit` in §3, and it is contained the same way: both sides implement a fully specified total ordering (ties broken by expiration date then batch id), and the same fixture set drives the Vitest and pgTAP tests, so a divergence shows up as a failing test rather than a silently different quote.
+
+**Alternatives considered**:
+- *Call `reserve_stock_for_order` on every edit, debounced*: one implementation of the rule, but it makes the headline interaction of the feature network-bound, and a debounce long enough to be cheap is long enough to feel laggy. Rejected by Eduardo.
+- *Move the whole quote to a read-only `preview_order_cost` RPC*: same latency problem as above, and it would still need the reservation RPC for the commit — two SQL implementations instead of one SQL and one TypeScript.
+
+## 8. Coverage as a derived view, not a returned value
+
+**Decision**: Whether a Recipe line's need is covered is computed by two `security_invoker` views — `order_line_requirements` (variant composition scaled to the requested quantity, material overrides substituted, count units rounded up) and `order_line_coverage` (requirements minus reservations) — plus `order_item_shortfalls`, their Order-wide aggregate. The FR-028 gate, the FR-016 placeholder pre-fill, and `reserve_stock_for_order` itself all read those views.
+
+**Rationale**: FR-028 blocks an Order from leaving Budgeting until every line is covered, but shortfalls were previously only a value `reserve_stock_for_order` returned to the client — nothing persisted them, so the gate had no source of truth to test and would have had to re-derive the need in SQL anyway, duplicating the scaling logic a third time. A view derives it once, always current, and cannot be bypassed by a client that simply doesn't call the RPC. It also makes FR-016's "sum across every Recipe line of the Order" a one-line `GROUP BY` instead of an aggregation the client would have to assemble from per-line responses.
+
+**Alternatives considered**:
+- *Persist `shortfall_amount` on `order_recipe_lines`*: a denormalized copy that goes stale the moment a Batch elsewhere is consumed, reserved, or deleted. Rejected.
+- *Have the client pass its computed coverage into `transition_order_status`*: the gate would then trust the caller, which on a public static frontend is no gate at all (Principle III).
+
+**Note**: `security_invoker = true` is required on every view here (PostgreSQL 15+). Without it a view runs as its owner and silently bypasses the RLS policies of the tables underneath — a hole in the project's only real access boundary.
+
+## 9. Stock accounting in canonical amounts, not package counts
+
+**Decision**: A Batch records `packages_purchased` (an integer, describing the purchase) and `unit_price` (per package), and from those a trigger derives `initial_amount` and `remaining_amount` in the linked Ingredient's/Material's canonical unit. Every other quantity in the feature — a line's requirement, a reservation, a consumption, a shortfall, a placeholder's need — is an amount in that same canonical unit, and every cost is per canonical unit (`cost_per_unit_amount = unit_price / package content`).
+
+**Rationale**: The first design had `quantity_remaining` as an integer package count while reservations and consumptions were canonical-unit numerics, and `consolidate_order_stock` decremented one by the other. Beyond the type mismatch, a package counter cannot represent the normal case: a 395 g can used for 200 g leaves 195 g, and FR-014 requires that remainder to be tracked for the next Order to cost against. Deriving amounts once at insert keeps the per-unit cost and the remaining content in the same currency of measurement everywhere they meet, so no comparison in the feature needs to remember which of the two it is holding. `initial_amount` is kept alongside `remaining_amount` both for "how much of this batch is left" display and so a later edit to the product's `package_amount` cannot retroactively change a batch already partly consumed.
+
+**Alternatives considered**:
+- *Keep package counts and convert at every comparison*: every query touching stock would carry a conversion, and fractional package counts (0.494 of a can) are meaningless to store and awkward to display.
+- *Store both a package count and an amount, kept in sync*: two sources of truth for the same fact, guaranteed to drift.
+
+## 10. Running the database tests locally
+
+**Decision**: pgTAP tests run against a local Supabase stack, which this repository does not yet have: `supabase/config.toml` is absent, so `supabase init` (committing the generated `config.toml`) and `supabase start` are prerequisites of the very first test task, before `supabase test db` or `supabase gen types typescript --local` can run at all. The hosted project stays the deployment target via the existing `supabase link` + `supabase db push` flow in README.md; the local stack is for tests and type generation only.
+
+**Rationale**: README.md documents only the linked hosted project, and the testing decision in §1 (pgTAP, asserted inside Postgres) silently assumed a local stack that nothing sets up. Running these tests against the hosted project is not an option — they create and destroy rows and impersonate roles. The devcontainer already publishes 54321/54323 and has Docker-outside-of-docker, so the stack works from the host browser as the constitution's devcontainer rule requires; only the initialization step was missing.
+
+**Alternatives considered**:
+- *Run pgTAP against the hosted Supabase project*: destructive tests against the only real database, with no staging environment to absorb mistakes. Rejected outright.

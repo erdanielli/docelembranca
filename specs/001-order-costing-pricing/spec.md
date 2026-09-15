@@ -78,13 +78,14 @@ As the confectioner, once a budget is approved I want to move the order through 
 
 ### Edge Cases
 
-- What happens when a requested Order quantity implies a fractional Material count (e.g., a mold count that doesn't divide evenly)?
-- What happens to open (non-Consolidated) Orders that reference a Recipe Size Variant whose composition is edited after the Order was budgeted?
-- What happens when two open Orders both reserve stock from the same Batch and together would exceed its remaining quantity?
-- How does the system handle an Ingredient/Material being deactivated while still referenced by an open Order or an active Recipe?
-- What happens when actual consumption confirmed at Consolidation differs (more or less) from what was reserved during Budgeting?
-- What happens when a client-requested Material customization references a Material not yet in the catalog?
-- What happens if the user attempts to cancel an Order that has already reached Consolidated?
+- **Fractional Material count** (e.g., a mold count that doesn't divide evenly): count-unit Materials are always rounded up to the next whole unit — FR-021a.
+- **A Recipe Size Variant edited after an Order was budgeted**: Orders still in Quoting/Budgeting are flagged for recalculation and must be re-costed; Orders past Budgeting keep what they were quoted — FR-021b.
+- **Two open Orders drawing on the same Batch**: a Batch's available amount is its remaining content minus every other still-active Order's commitment, so the second Order sees only what is genuinely left and falls back to another Batch or a Future/Pending placeholder — FR-031, FR-023.
+- **An Ingredient/Material deactivated while still referenced**: deactivation only hides it from new selections; existing Recipes, Orders, and Stock links keep working — FR-008a.
+- **Actual consumption differing from what was reserved**: the confirmed amount is what gets deducted, and the difference is exactly what the budgeted-vs-actual comparison reports — FR-033, FR-035.
+- **A client-requested Material not yet in the catalog**: it is registered from inside the Order and then used as an override — FR-020.
+- **Canceling an already-Consolidated Order**: not possible; Consolidated is terminal and read-only — FR-037.
+- **A Batch that is already past its expiration date**: it is never chosen automatically and is surfaced as expired stock for the user to discard — FR-022.
 
 ## Requirements *(mandatory)*
 
@@ -100,17 +101,18 @@ As the confectioner, once a budget is approved I want to move the order through 
 - **FR-006**: Each Recipe Size Variant MUST specify the default Material(s) it uses (e.g., a specific mold size or packaging).
 - **FR-007**: System MUST prevent a Recipe or Recipe Size Variant from referencing an Ingredient or Material that does not exist in the catalog.
 - **FR-008**: System MUST allow adding new Recipes, Recipe Size Variants, Ingredients, and Materials at any time, without requiring a fixed or predefined catalog.
+- **FR-008a**: Deactivating an Ingredient, Material, or Recipe MUST only remove it from future selections; every Recipe, Order, and Stock link that already references it MUST keep working unchanged.
 
 **Stock (Batches)**
 
 - **FR-009**: System MUST allow linking a real market Stock Product to exactly one catalog Ingredient or one catalog Material.
 - **FR-010**: Each Stock Product MUST record its individual package weight/volume/count value in any unit compatible with its linked Ingredient's or Material's unit of measure (e.g., a product may be entered in kg while linked to an Ingredient tracked in g), and System MUST automatically convert between compatible units for all cost calculations.
-- **FR-011**: Each Stock Product purchase MUST record the price paid, the total number of packages purchased, the expiration date, and, optionally, the purchase date and purchase location.
+- **FR-011**: Each Stock Product purchase MUST record the price paid per package, the total number of packages purchased, and, optionally, an expiration date, the purchase date, and the purchase location. The expiration date is optional because non-perishable Materials (molds, mats) have none; a Batch without one simply never qualifies for the expiry priority in FR-022.
 - **FR-012**: Each purchase MUST be tracked as its own distinct Batch, so multiple Batches of the same Ingredient/Material can coexist with independent prices, expiration dates, and remaining quantities.
 - **FR-013**: System MUST provide a quick "bulk pack" entry mode where the user enters the pack size (e.g., 24 units) and the total price paid, and the system derives and stores the per-unit price automatically.
-- **FR-014**: System MUST track the remaining available quantity of each Batch as it is consumed by Orders.
+- **FR-014**: System MUST track each Batch's remaining content expressed in its linked Ingredient's/Material's unit of measure rather than as a whole-package count, so that consuming part of a package (200 g out of a 395 g can) is representable, and MUST reduce it as Orders consume the Batch.
 - **FR-015**: System MUST allow registering a Future/Pending Stock placeholder for an Ingredient or Material that has no covering Batch, capturing a user-entered estimated unit price.
-- **FR-016**: When a Future/Pending Stock placeholder is created from an Order Budget, System MUST automatically pre-fill its needed quantity as the sum of that Ingredient's/Material's shortfall across every Recipe line of that Order.
+- **FR-016**: When a Future/Pending Stock placeholder is created from an Order Budget, System MUST automatically pre-fill its needed quantity as the sum of that Ingredient's/Material's shortfall across **every** Recipe line of that Order, and MUST keep at most one placeholder per Order and Ingredient/Material so shortfalls from several Recipe lines are neither missed nor counted twice.
 
 **Order Budgeting & Pricing**
 
@@ -119,28 +121,31 @@ As the confectioner, once a budget is approved I want to move the order through 
 - **FR-017b**: System MUST let the user view, for a given Customer, the list of past and current Orders associated with them.
 - **FR-018**: System MUST default a new Order's date to the current date while allowing the user to override it, including to a past date.
 - **FR-019**: System MUST allow an Order, once advanced to "Quoting/Budgeting," to include one or more Recipe lines, each specifying a Recipe, a Size Variant, and a requested total quantity.
-- **FR-020**: System MUST allow overriding the Materials used on a specific Order's Recipe line (e.g., a client-requested mold or custom packaging), without changing the underlying Recipe Size Variant's defaults for other Orders.
-- **FR-021**: System MUST recompute, in real time as inputs change, the total ingredient cost and total material cost for each Order Recipe line, based on catalog quantities scaled to the requested total quantity and on available Stock Batch prices.
-- **FR-022**: When selecting which Stock Batch(es) to draw from for a Recipe line's Ingredient/Material need, System MUST prioritize, in order: (a) Batches expiring within 15 days of the current date, then (b) the lowest unit price among the remaining eligible Batches.
+- **FR-020**: System MUST allow overriding the Materials used on a specific Order's Recipe line (e.g., a client-requested mold or custom packaging), without changing the underlying Recipe Size Variant's defaults for other Orders. Overrides MUST be chosen from catalog Materials; when a client asks for something not yet catalogued, the user MUST be able to register that Material (FR-002) without leaving the Order.
+- **FR-021**: System MUST recompute, in real time as inputs change, the total ingredient cost and total material cost for each Order Recipe line, based on catalog quantities scaled to the requested total quantity and on available Stock Batch prices. This recalculation MUST NOT depend on a network round trip; it runs over data already loaded for the Order, while the authoritative stock commitment (FR-031) is persisted when the line is saved.
+- **FR-021a**: When a Material's unit of measure is a count (`un`), the amount required for an Order Recipe line MUST be rounded up to the next whole unit, since half a mold can be neither bought nor used.
+- **FR-021b**: If a Recipe Size Variant's composition changes while an Order is still in "Quoting/Budgeting," that Order's affected Recipe lines MUST be flagged as needing recalculation and MUST be re-costed before the Order can advance; Orders already past Budgeting MUST keep the composition and prices they were quoted with.
+- **FR-022**: When selecting which Stock Batch(es) to draw from for a Recipe line's Ingredient/Material need, System MUST consider only Batches that have not already expired, and MUST prioritize, in order: (a) Batches expiring within the next 15 days, cheapest first among them, then (b) the lowest unit price among the remaining eligible Batches. Already-expired Batches MUST be excluded from automatic selection and surfaced to the user as expired stock instead.
 - **FR-023**: If no existing Batch can fully cover an Ingredient's/Material's required quantity for an Order, System MUST prompt the user to create a Future/Pending Stock placeholder (per FR-015/FR-016) before that Recipe line's cost can be treated as complete.
 - **FR-024**: System MUST allow entering a single labor-cost estimate for the whole Order.
 - **FR-025**: System MUST allow entering a profit margin percentage for each Recipe line within the Order.
 - **FR-026**: System MUST allow entering a single overall discount percentage applied to the whole Order.
-- **FR-027**: System MUST display, for the Order as a whole and per Recipe line, the detailed cost breakdown (ingredient cost, material cost, labor allocation, profit amount, discount amount) and the final price to charge.
+- **FR-027**: System MUST display, for the Order as a whole and per Recipe line, the detailed cost breakdown (ingredient cost, material cost, labor allocation, profit amount, discount amount) and the final price to charge. The Order's single labor cost (FR-024) and single discount percentage (FR-026) MUST be allocated across Recipe lines in proportion to each line's own cost, so a per-line — and therefore a per-unit — price can be read directly.
 - **FR-028**: The "Quoting/Budgeting" status MUST NOT be marked complete until every Recipe line's Ingredient/Material need is covered by a real or Future/Pending Stock reference with a price.
 
 **Order Lifecycle**
 
 - **FR-029**: System MUST support the Order status sequence Awaiting Quote → Quoting/Budgeting → Awaiting Production → In Production → Awaiting Consolidation → Consolidated, with a Canceled status reachable from any non-terminal status.
 - **FR-030**: System MUST only allow a manual, user-initiated transition from "Awaiting Production" to "In Production," and only when every needed Ingredient/Material is covered by real (non-Future/Pending) Stock Batches.
-- **FR-031**: System MUST reserve ("commit") the specific Stock Batch quantities identified during Budgeting for an Order, distinguishing reserved quantity from freely available quantity, for as long as the Order remains active.
+- **FR-030a**: System MUST let the user resolve a Future/Pending Stock placeholder by pointing it at the real Stock Batch eventually purchased; doing so MUST move every stock commitment that depended on that placeholder onto the real Batch — keeping the prices the Order was quoted with (FR-031) — so the Order can satisfy FR-030.
+- **FR-031**: System MUST reserve ("commit") the specific Stock Batch quantities identified during Budgeting for an Order, distinguishing committed from freely available stock, for as long as the Order remains active. A Batch's freely available amount MUST therefore be its remaining content minus everything committed to other still-active Orders, and each commitment MUST keep the unit price it was quoted at, marked as estimated when that price came from a Future/Pending placeholder.
 - **FR-032**: At "Awaiting Consolidation," System MUST allow recording the actual delivery date and the payment method used (e.g., Pix, cash, or deferred/store-credit payment) as an informational record; settlement/payoff tracking for deferred payments over time is out of scope for this feature.
 - **FR-033**: At "Consolidated," System MUST let the user confirm, filtered to only the Batches reserved for that Order, the actual quantity of each Ingredient/Material consumed, deducting it from the corresponding Batch's remaining quantity.
 - **FR-034**: The "Consolidated" status MUST NOT be reached until the user has confirmed actual consumption for every item reserved on the Order.
 - **FR-035**: Once "Consolidated," System MUST display the comparison between budgeted cost/profit and actual cost/profit based on confirmed consumption.
 - **FR-036**: System MUST allow canceling an Order from any non-terminal status, optionally capturing a cancellation reason and a brief financial-impact note, and MUST release any Stock Batch quantities reserved for that Order back to available stock.
-- **FR-037**: A Canceled Order MUST be archived as read-only, with no further status transitions possible.
-- **FR-038**: System MUST record a timestamped history entry every time an Order transitions from one status to another, capturing the previous status, the new status, and the exact date/time of the change.
+- **FR-037**: A Canceled or Consolidated Order MUST be archived as read-only: no further status transitions, and no edits to its Recipe lines, labor cost, discount, material overrides, or stock commitments.
+- **FR-038**: System MUST record a timestamped history entry when an Order is created (its entry into "Awaiting Quote," with no previous status) and every time it subsequently transitions from one status to another, capturing the previous status, the new status, and the exact date/time of the change.
 - **FR-039**: System MUST let the user view an Order's full status history as a chronological timeline at any point in the Order's lifecycle, including after it reaches Consolidated or Canceled.
 - **FR-040**: System MUST retain an Order's complete status history permanently; history entries MUST NOT be editable or deletable by the user.
 
@@ -151,11 +156,12 @@ As the confectioner, once a budget is approved I want to move the order through 
 - **Recipe**: A named composition of Ingredients and Materials; has no preparation-method content; groups one or more Size Variants.
 - **Recipe Size Variant**: A commercial-size classification of a Recipe (e.g., "Traditional Party Size"), defining specific Ingredient quantities and default Material choices.
 - **Stock Product**: A real market product linked to exactly one Ingredient or Material, recording its package's weight/volume/count value.
-- **Stock Batch**: One purchase instance of a Stock Product, with its own price, expiration date, purchased quantity, remaining quantity, and optional purchase date/location.
-- **Future/Pending Stock**: A placeholder representing an Ingredient/Material need not yet covered by a real Batch, with a user-estimated price and an auto-calculated needed quantity.
+- **Stock Batch**: One purchase instance of a Stock Product, with its own price per package, number of packages purchased, optional expiration date and purchase date/location, and its remaining content tracked in the linked Ingredient's/Material's unit of measure.
+- **Future/Pending Stock**: A placeholder representing an Ingredient/Material need not yet covered by a real Batch, with a user-estimated price and an auto-calculated needed quantity, later resolved against the real Batch actually purchased (FR-030a).
 - **Customer**: A reusable record of a client (name, phone number), independent of any single Order, whose past and current Orders can be looked up.
 - **Order**: A client request moving through a defined status lifecycle, linked to a Customer, capturing delivery deadline, one or more Recipe lines, labor cost, discount, and computed pricing.
 - **Order Recipe Line**: An Order's request for a specific Recipe, Size Variant, and total quantity, with its own profit percentage and optional Material overrides.
+- **Order Stock Reservation**: The link between an Order Recipe Line and the specific Stock Batch (or Future/Pending placeholder) covering part of its need, carrying the committed amount and the unit price quoted for it.
 - **Order Status History Entry**: An immutable, timestamped record of a single Order status transition (previous status, new status, and when it happened), preserved for the life of the Order regardless of its current status.
 
 ## Success Criteria *(mandatory)*
@@ -180,5 +186,8 @@ As the confectioner, once a budget is approved I want to move the order through 
 - An Order may include the same Recipe more than once with different Size Variants.
 - Order status history is system-generated only (recorded automatically on every transition); the user cannot manually add, edit, or back-date history entries. This traceability matters because it is the only reliable record of how long an Order actually spent in each stage (e.g., time awaiting production, time in production), which underpins future analysis of lead times, accountability for delays, and reconstructing what happened on a disputed or problem Order after the fact.
 - Monetary values are in Brazilian Reais (BRL).
+- Stock amounts (needs, commitments, remaining content, consumption) are all expressed in the linked Ingredient's/Material's own unit of measure; the number of packages purchased is only an input for deriving that content and its per-unit price.
+- A stock commitment counts against a Batch's availability only while its Order is still active (between Budgeting and Consolidation); canceled Orders release theirs immediately, and consolidated Orders have already had their real consumption deducted.
+- Labor cost and the order-level discount are allocated to Recipe lines in proportion to each line's cost (FR-027); no other allocation basis (per unit, per line count) is offered in this feature.
 - Deferred/store-credit ("fiado") payments are recorded as an informational payment method only; tracking whether/when such a debt is later settled is out of scope for this feature and may be addressed by a future accounts-receivable feature.
 - Currency/locale formatting and all user-facing text will be Portuguese (pt-BR), per project convention; this specification is written in English per project convention for AI-authored artifacts.
