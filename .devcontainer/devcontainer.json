@@ -1,0 +1,74 @@
+{
+  "name": "docelembranca-dev",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+
+  // Docker-outside-of-docker: reuses the host's Docker daemon via the
+  // mounted socket instead of running Docker-in-Docker. Requires Docker
+  // to already be running on the host (per your setup).
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": true,
+      "installDockerBuildx": true
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "remoteUser": "node",
+
+  "mounts": [
+    // Host SSH keys (read-only) — your GitHub SSH key already works on
+    // the host, this makes it available inside the container as-is.
+    "source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,type=bind,readonly,z",
+
+    // Host ssh-agent socket, best effort. Works out of the box on Linux
+    // hosts. On macOS/Windows with Docker Desktop this may not forward
+    // automatically — see README troubleshooting section.
+    "source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind",
+
+    // Host git config (read-only) — included from the container's own
+    // gitconfig, which then overrides user.email (see post-create.sh).
+    "source=${localEnv:HOME}/.gitconfig,target=/home/node/.gitconfig-host,type=bind,readonly,z",
+
+    // Claude Code auth/session state, shared read-write so you don't have
+    // to re-authenticate inside the container. `z` relabels the mount for
+    // SELinux (needed on Fedora/RHEL hosts, harmless elsewhere) so the
+    // container user can actually read files instead of getting silently
+    // denied. If ~/.claude doesn't exist yet on your host, remove this
+    // line or run `claude login` once inside the container first.
+    "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind,z",
+
+    // Claude Code also keeps onboarding/session state in a top-level
+    // ~/.claude.json file, separate from the .claude/ folder above.
+    // Without this, the container looks "unconfigured" to Claude even
+    // when the credentials file is readable, and it still asks to log in.
+    "source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind,z"
+  ],
+
+  "containerEnv": {
+    "SSH_AUTH_SOCK": "/ssh-agent"
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "forwardPorts": [5173, 54321, 54323],
+  "portsAttributes": {
+    "5173": { "label": "Vite dev server" },
+    "54321": { "label": "Supabase API (local)" },
+    "54323": { "label": "Supabase Studio (local)" }
+  },
+
+  "customizations": {
+    "jetbrains": {
+      "backend": "IntelliJ",
+      "plugins": ["org.jetbrains.plugins.github"]
+    },
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}
