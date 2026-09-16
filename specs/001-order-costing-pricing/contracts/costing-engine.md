@@ -78,9 +78,9 @@ Implements FR-024/FR-025/FR-026/FR-027 in this order:
 
 1. `cost` = ingredient + material cost for the line.
 2. `profitAmount` = `cost * profitPercent / 100` (per line, FR-025).
-3. `laborAllocation` = the Order's single labor cost split across lines **in proportion to each line's `cost`** (FR-027). When every line's cost is 0, it is split evenly instead, so labor is never silently dropped.
+3. `laborAllocation` = the Order's single labor cost split across lines **in proportion to each line's `cost`** (FR-027). When every line's cost is 0 there is no proportion to divide by, so it is split evenly instead and labor is never silently dropped — FR-027 specifies this fallback directly, rather than it being a contract-local invention.
 4. `subtotal` = `cost + profitAmount + laborAllocation`; `subtotalBeforeDiscount` = the sum of those.
-5. `discountAmount` = `subtotalBeforeDiscount * discountPercent / 100` (once for the Order, FR-026), allocated per line in proportion to each line's `subtotal`.
+5. `discountAmount` = `subtotalBeforeDiscount * discountPercent / 100` (once for the Order, FR-026), allocated per line in proportion to each line's `subtotal`. When `subtotalBeforeDiscount` is 0 the Order's `discountAmount` is 0 too, and every line's share is 0 — stated explicitly because the proportional formula is `0/0` there (FR-027).
 6. `finalPrice` = `subtotalBeforeDiscount − discountAmount`; per line, `subtotal − discountAmount`, and `pricePerUnit` = that divided by `requestedQuantity` — the number the confectioner actually quotes ("R$ X the hundred").
 
 Allocations are computed on unrounded values; rounding to centavos happens only at display, so the per-line figures always add back up to the Order total.
