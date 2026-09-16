@@ -17,17 +17,22 @@ export function RecipeForm({
   onSaved?: (recipe: Recipe) => void;
 }) {
   const [name, setName] = useState(recipe?.name ?? "");
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    setError(null);
 
-    const { data } = recipe
+    const { data, error: saveError } = recipe
       ? await client.from("recipes").update({ name }).eq("id", recipe.id).select().single()
       : await client.from("recipes").insert({ name }).select().single();
 
-    if (data) {
-      onSaved?.(data);
+    if (saveError || !data) {
+      setError(saveError?.message ?? "Não foi possível salvar.");
+      return;
     }
+
+    onSaved?.(data);
     if (!recipe) {
       setName("");
     }
@@ -45,6 +50,11 @@ export function RecipeForm({
             required
           />
         </label>
+        {error && (
+          <p className="form__error" role="alert">
+            {error}
+          </p>
+        )}
         <button type="submit" className="btn btn--primary">
           Salvar
         </button>

@@ -2,14 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { createSupabaseStub } from "../../helpers/supabaseStub";
 import { MaterialForm } from "../../../src/features/catalog/MaterialForm";
-import type { DataClient } from "../../../src/lib/dataClient";
 
 describe("MaterialForm", () => {
   it("creates a new Material with a name and a unit of measure", async () => {
     const stub = createSupabaseStub();
     const onSaved = vi.fn();
 
-    render(<MaterialForm client={stub.client as unknown as DataClient} onSaved={onSaved} />);
+    render(<MaterialForm client={stub.client} onSaved={onSaved} />);
 
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Forminha branca" } });
     fireEvent.change(screen.getByLabelText("Unidade"), { target: { value: "un" } });
@@ -32,7 +31,7 @@ describe("MaterialForm", () => {
       updated_at: "2026-01-01T00:00:00Z",
     };
 
-    render(<MaterialForm client={stub.client as unknown as DataClient} material={material} />);
+    render(<MaterialForm client={stub.client} material={material} />);
 
     expect(screen.getByLabelText("Nome")).toHaveValue("Forminha branca");
     expect(screen.getByLabelText("Unidade")).toHaveValue("un");

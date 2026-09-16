@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { createSupabaseStub } from "../../helpers/supabaseStub";
 import { IngredientList } from "../../../src/features/catalog/IngredientList";
-import type { DataClient } from "../../../src/lib/dataClient";
 
 const ingredient = (overrides: Partial<Parameters<typeof IngredientList>[0]["ingredients"][number]>) => ({
   id: "ing-1",
@@ -22,7 +21,7 @@ describe("IngredientList", () => {
 
     render(
       <IngredientList
-        client={stub.client as unknown as DataClient}
+        client={stub.client}
         ingredients={[item]}
         onEdit={onEdit}
       />,
@@ -41,7 +40,7 @@ describe("IngredientList", () => {
 
     render(
       <IngredientList
-        client={stub.client as unknown as DataClient}
+        client={stub.client}
         ingredients={[item]}
         onChanged={onChanged}
       />,
@@ -60,7 +59,7 @@ describe("IngredientList", () => {
     const stub = createSupabaseStub();
     const item = ingredient({ active: false });
 
-    render(<IngredientList client={stub.client as unknown as DataClient} ingredients={[item]} />);
+    render(<IngredientList client={stub.client} ingredients={[item]} />);
 
     expect(screen.getByText("Leite condensado")).toBeInTheDocument();
     expect(screen.getByText("Inativo")).toBeInTheDocument();

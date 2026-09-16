@@ -16,6 +16,8 @@ const UNITS: Readonly<Record<Unit, { readonly dimension: Dimension; readonly fac
   un: { dimension: "count", factor: 1 },
 };
 
+export const ALL_UNITS: readonly Unit[] = Object.keys(UNITS) as Unit[];
+
 export function dimensionOf(unit: Unit): Dimension {
   return UNITS[unit].dimension;
 }

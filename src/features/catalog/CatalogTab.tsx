@@ -16,6 +16,14 @@ const SECTIONS: readonly { readonly id: Section; readonly label: string }[] = [
   { id: "recipes", label: "Receitas" },
 ];
 
+/** Inserts or replaces `item` by id, keeping the list sorted by name like the server does. */
+function upsertByName<T extends { id: string; name: string }>(list: readonly T[], item: T): T[] {
+  const next = list.some((existing) => existing.id === item.id)
+    ? list.map((existing) => (existing.id === item.id ? item : existing))
+    : [...list, item];
+  return next.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function CatalogTab({ client }: { client: DataClient }) {
   const [section, setSection] = useState<Section>("ingredients");
 
@@ -28,30 +36,38 @@ export function CatalogTab({ client }: { client: DataClient }) {
   const [editingMaterial, setEditingMaterial] = useState<Tables<"materials"> | undefined>();
   const [selectedRecipe, setSelectedRecipe] = useState<Tables<"recipes"> | undefined>();
 
+  // A failed refetch leaves the previously-loaded list on screen rather than
+  // clearing it — a transient network error shouldn't make the catalog look empty.
   const refreshIngredients = useCallback(async () => {
     try {
       const { data } = await client.from("ingredients").select("*").order("name");
-      setIngredients(data ?? []);
+      if (data) {
+        setIngredients(data);
+      }
     } catch {
-      setIngredients([]);
+      // keep showing what was already loaded
     }
   }, [client]);
 
   const refreshMaterials = useCallback(async () => {
     try {
       const { data } = await client.from("materials").select("*").order("name");
-      setMaterials(data ?? []);
+      if (data) {
+        setMaterials(data);
+      }
     } catch {
-      setMaterials([]);
+      // keep showing what was already loaded
     }
   }, [client]);
 
   const refreshRecipes = useCallback(async () => {
     try {
       const { data } = await client.from("recipes").select("*").order("name");
-      setRecipes(data ?? []);
+      if (data) {
+        setRecipes(data);
+      }
     } catch {
-      setRecipes([]);
+      // keep showing what was already loaded
     }
   }, [client]);
 
@@ -63,9 +79,11 @@ export function CatalogTab({ client }: { client: DataClient }) {
           .select("*")
           .eq("recipe_id", recipeId)
           .order("name");
-        setVariants(data ?? []);
+        if (data) {
+          setVariants(data);
+        }
       } catch {
-        setVariants([]);
+        // keep showing what was already loaded
       }
     },
     [client],
@@ -106,9 +124,9 @@ export function CatalogTab({ client }: { client: DataClient }) {
           <IngredientForm
             client={client}
             ingredient={editingIngredient}
-            onSaved={() => {
+            onSaved={(ingredient) => {
               setEditingIngredient(undefined);
-              void refreshIngredients();
+              setIngredients((current) => upsertByName(current, ingredient));
             }}
           />
           <IngredientList
@@ -125,9 +143,9 @@ export function CatalogTab({ client }: { client: DataClient }) {
           <MaterialForm
             client={client}
             material={editingMaterial}
-            onSaved={() => {
+            onSaved={(material) => {
               setEditingMaterial(undefined);
-              void refreshMaterials();
+              setMaterials((current) => upsertByName(current, material));
             }}
           />
           <MaterialList
@@ -147,7 +165,7 @@ export function CatalogTab({ client }: { client: DataClient }) {
             variants={variants}
             onSaved={(recipe) => {
               setSelectedRecipe(recipe);
-              void refreshRecipes();
+              setRecipes((current) => upsertByName(current, recipe));
             }}
           />
           <ul className="list" aria-label="Lista de receitas">

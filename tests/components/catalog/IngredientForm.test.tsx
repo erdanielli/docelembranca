@@ -2,14 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { createSupabaseStub } from "../../helpers/supabaseStub";
 import { IngredientForm } from "../../../src/features/catalog/IngredientForm";
-import type { DataClient } from "../../../src/lib/dataClient";
 
 describe("IngredientForm", () => {
   it("creates a new Ingredient with a name and a unit of measure", async () => {
     const stub = createSupabaseStub();
     const onSaved = vi.fn();
 
-    render(<IngredientForm client={stub.client as unknown as DataClient} onSaved={onSaved} />);
+    render(<IngredientForm client={stub.client} onSaved={onSaved} />);
 
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Leite condensado" } });
     fireEvent.change(screen.getByLabelText("Unidade"), { target: { value: "kg" } });
@@ -32,7 +31,7 @@ describe("IngredientForm", () => {
       updated_at: "2026-01-01T00:00:00Z",
     };
 
-    render(<IngredientForm client={stub.client as unknown as DataClient} ingredient={ingredient} />);
+    render(<IngredientForm client={stub.client} ingredient={ingredient} />);
 
     expect(screen.getByLabelText("Nome")).toHaveValue("Açúcar");
     expect(screen.getByLabelText("Unidade")).toHaveValue("g");
@@ -46,5 +45,22 @@ describe("IngredientForm", () => {
       const eqCall = stub.calls.find((call) => call.method === "ingredients.eq");
       expect(eqCall?.args).toEqual(["id", "ing-1"]);
     });
+  });
+
+  it("shows an error and keeps the typed input when the save fails", async () => {
+    const stub = createSupabaseStub({ errors: { ingredients: { message: "duplicate name" } } });
+    const onSaved = vi.fn();
+
+    render(<IngredientForm client={stub.client} onSaved={onSaved} />);
+
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Açúcar" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+
+    await vi.waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("duplicate name");
+    });
+
+    expect(screen.getByLabelText("Nome")).toHaveValue("Açúcar");
+    expect(onSaved).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { createSupabaseStub } from "../../helpers/supabaseStub";
 import { MaterialList } from "../../../src/features/catalog/MaterialList";
-import type { DataClient } from "../../../src/lib/dataClient";
 
 const material = (overrides: Partial<Parameters<typeof MaterialList>[0]["materials"][number]>) => ({
   id: "mat-1",
@@ -21,7 +20,7 @@ describe("MaterialList", () => {
     const item = material({});
 
     render(
-      <MaterialList client={stub.client as unknown as DataClient} materials={[item]} onEdit={onEdit} />,
+      <MaterialList client={stub.client} materials={[item]} onEdit={onEdit} />,
     );
 
     expect(screen.getByText("Forminha branca")).toBeInTheDocument();
@@ -37,7 +36,7 @@ describe("MaterialList", () => {
 
     render(
       <MaterialList
-        client={stub.client as unknown as DataClient}
+        client={stub.client}
         materials={[item]}
         onChanged={onChanged}
       />,
@@ -56,7 +55,7 @@ describe("MaterialList", () => {
     const stub = createSupabaseStub();
     const item = material({ active: false });
 
-    render(<MaterialList client={stub.client as unknown as DataClient} materials={[item]} />);
+    render(<MaterialList client={stub.client} materials={[item]} />);
 
     expect(screen.getByText("Forminha branca")).toBeInTheDocument();
     expect(screen.getByText("Inativo")).toBeInTheDocument();

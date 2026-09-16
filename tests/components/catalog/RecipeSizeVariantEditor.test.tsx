@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { createSupabaseStub } from "../../helpers/supabaseStub";
 import { RecipeSizeVariantEditor } from "../../../src/features/catalog/RecipeSizeVariantEditor";
-import type { DataClient } from "../../../src/lib/dataClient";
 
 const ingredients = [
   {
@@ -48,7 +47,7 @@ describe("RecipeSizeVariantEditor", () => {
 
     render(
       <RecipeSizeVariantEditor
-        client={stub.client as unknown as DataClient}
+        client={stub.client}
         recipeId="rec-1"
         ingredients={ingredients}
         materials={materials}
@@ -76,7 +75,7 @@ describe("RecipeSizeVariantEditor", () => {
 
     render(
       <RecipeSizeVariantEditor
-        client={stub.client as unknown as DataClient}
+        client={stub.client}
         recipeId="rec-1"
         ingredients={ingredients}
         materials={materials}
@@ -122,7 +121,7 @@ describe("RecipeSizeVariantEditor", () => {
 
     render(
       <RecipeSizeVariantEditor
-        client={stub.client as unknown as DataClient}
+        client={stub.client}
         recipeId="rec-1"
         ingredients={ingredients}
         materials={materials}
@@ -159,5 +158,51 @@ describe("RecipeSizeVariantEditor", () => {
         { variant_id: "var-1", ingredient_id: "ing-active", amount: 30 },
       ]);
     });
+  });
+
+  it("shows an error and does not clear the form when a composition row fails to save", async () => {
+    const stub = createSupabaseStub({
+      tables: { recipe_size_variants: [{ id: "var-1", recipe_id: "rec-1", name: "seed" }] },
+      errors: { recipe_variant_ingredients: { message: "amount must be greater than 0" } },
+    });
+    const onAdded = vi.fn();
+
+    render(
+      <RecipeSizeVariantEditor
+        client={stub.client}
+        recipeId="rec-1"
+        ingredients={ingredients}
+        materials={materials}
+        onAdded={onAdded}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Nome do tamanho"), { target: { value: "Tamanho A" } });
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar ingrediente" }));
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar tamanho" }));
+
+    await vi.waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("amount must be greater than 0");
+    });
+
+    expect(screen.getByLabelText("Nome do tamanho")).toHaveValue("Tamanho A");
+    expect(screen.getByLabelText("Quantidade do ingrediente")).toBeInTheDocument();
+    expect(onAdded).not.toHaveBeenCalled();
+  });
+
+  it("disables adding a row when there are no active Ingredients or Materials to pick", () => {
+    const stub = createSupabaseStub();
+    const inactiveOnly = ingredients.filter((ingredient) => !ingredient.active);
+
+    render(
+      <RecipeSizeVariantEditor
+        client={stub.client}
+        recipeId="rec-1"
+        ingredients={inactiveOnly}
+        materials={materials}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Adicionar ingrediente" })).toBeDisabled();
   });
 });

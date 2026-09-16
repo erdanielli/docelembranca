@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { createSupabaseStub } from "../../helpers/supabaseStub";
 import { CatalogTab } from "../../../src/features/catalog/CatalogTab";
-import type { DataClient } from "../../../src/lib/dataClient";
 
 describe("CatalogTab", () => {
   it("renders the Ingredient, Material, and Recipe sections and navigates between them", () => {
     const stub = createSupabaseStub();
 
-    render(<CatalogTab client={stub.client as unknown as DataClient} />);
+    render(<CatalogTab client={stub.client} />);
 
     expect(screen.getByRole("button", { name: "Ingredientes" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Materiais" })).toBeInTheDocument();

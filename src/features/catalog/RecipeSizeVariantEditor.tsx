@@ -30,46 +30,68 @@ export function RecipeSizeVariantEditor({
   const [name, setName] = useState("");
   const [ingredientRows, setIngredientRows] = useState<readonly IngredientRow[]>([]);
   const [materialRows, setMaterialRows] = useState<readonly MaterialRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  const addIngredientRow = () =>
+  const addIngredientRow = () => {
+    if (activeIngredients.length === 0) {
+      return;
+    }
     setIngredientRows((rows) => [
       ...rows,
-      { key: nextRowKey(), ingredientId: activeIngredients[0]?.id ?? "", amount: "" },
+      { key: nextRowKey(), ingredientId: activeIngredients[0].id, amount: "" },
     ]);
+  };
 
-  const addMaterialRow = () =>
+  const addMaterialRow = () => {
+    if (activeMaterials.length === 0) {
+      return;
+    }
     setMaterialRows((rows) => [
       ...rows,
-      { key: nextRowKey(), materialId: activeMaterials[0]?.id ?? "", amount: "" },
+      { key: nextRowKey(), materialId: activeMaterials[0].id, amount: "" },
     ]);
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    setError(null);
 
-    const { data: variant } = await client
+    const { data: variant, error: variantError } = await client
       .from("recipe_size_variants")
       .insert({ recipe_id: recipeId, name })
       .select()
       .single();
 
-    if (!variant) {
+    if (variantError || !variant) {
+      setError(variantError?.message ?? "Não foi possível salvar o tamanho.");
       return;
     }
 
     for (const row of ingredientRows) {
-      await client.from("recipe_variant_ingredients").insert({
+      // Amounts round-trip through Number() here and back on read — Postgres
+      // `numeric` columns come back from PostgREST as strings, not numbers,
+      // despite what the generated types say.
+      const { error: rowError } = await client.from("recipe_variant_ingredients").insert({
         variant_id: variant.id,
         ingredient_id: row.ingredientId,
         amount: Number(row.amount),
       });
+      if (rowError) {
+        setError(rowError.message);
+        return;
+      }
     }
 
     for (const row of materialRows) {
-      await client.from("recipe_variant_materials").insert({
+      const { error: rowError } = await client.from("recipe_variant_materials").insert({
         variant_id: variant.id,
         material_id: row.materialId,
         amount: Number(row.amount),
       });
+      if (rowError) {
+        setError(rowError.message);
+        return;
+      }
     }
 
     setName("");
@@ -122,7 +144,12 @@ export function RecipeSizeVariantEditor({
             />
           </div>
         ))}
-        <button type="button" className="btn btn--secondary" onClick={addIngredientRow}>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          onClick={addIngredientRow}
+          disabled={activeIngredients.length === 0}
+        >
           Adicionar ingrediente
         </button>
       </fieldset>
@@ -159,11 +186,21 @@ export function RecipeSizeVariantEditor({
             />
           </div>
         ))}
-        <button type="button" className="btn btn--secondary" onClick={addMaterialRow}>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          onClick={addMaterialRow}
+          disabled={activeMaterials.length === 0}
+        >
           Adicionar material
         </button>
       </fieldset>
 
+      {error && (
+        <p className="form__error" role="alert">
+          {error}
+        </p>
+      )}
       <button type="submit" className="btn btn--primary">
         Adicionar tamanho
       </button>
