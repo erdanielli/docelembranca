@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # The Supabase CLI's well-known local-dev anon/JWT pair — fixed and
+    # identical for every local Supabase project, not a secret. Only the
+    # hosted project's real keys (used by deploy.yml) need to stay in
+    # repo secrets.
+    env:
+      VITE_SUPABASE_URL: http://127.0.0.1:54321
+      VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run build
+
+      - run: npm test
+
+      # pg_prove is not preinstalled on the runner — mirrors the packages
+      # .devcontainer/Dockerfile installs for the same purpose.
+      - name: Install pgTAP tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client libtap-parser-sourcehandler-pgtap-perl
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - run: supabase start
+      - run: supabase migration up
+
+      - run: npm run test:db
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

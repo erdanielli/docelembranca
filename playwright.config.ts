@@ -6,6 +6,9 @@ import { defineConfig, devices } from "@playwright/test";
 // the real Google OAuth provider only exists on the hosted project.
 export default defineConfig({
   testDir: "tests/e2e",
+  // Provisions the shared local-stack test account once, before any worker
+  // starts — see tests/e2e/global-setup.ts for why that matters.
+  globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
