@@ -5,10 +5,10 @@ This is a validation guide, not a test suite — it proves the feature works end
 ## Prerequisites
 
 - `.env` populated per README.md (Supabase URL + anon key).
-- **Local Supabase stack initialized**: this repo has no `supabase/config.toml` yet, so `supabase init` must be run once (and its `config.toml` committed) before anything below works — see research.md §10. Then `supabase start` brings up the local stack; the devcontainer already publishes 54321/54323 to the host.
+- **Local Supabase stack**: `supabase/config.toml` is committed (T006), so `supabase start` is all that is needed to bring the stack up. The devcontainer shares the host's network namespace (`runArgs: ["--network=host"]`, with `forwardPorts` deliberately absent), so 54321–54324 are already on the host's loopback — nothing is forwarded or published, and re-adding `forwardPorts` makes `supabase start` fail with `address already in use` (research.md §10).
 - Migrations applied: `supabase migration up` against the local stack (`supabase db push` for the hosted project).
-- Dependencies installed: `npm install` (after tasks.md adds Vitest/RTL to `package.json`).
-- Dev server running: `npm run dev`, reachable from the host browser (devcontainer port forwarding, per constitution).
+- Dependencies installed: `npm install`.
+- Dev server running: `npm run dev`, reachable from the host browser over that same shared namespace.
 
 The local stack is for tests and type generation only; the hosted project stays the deployment target.
 
@@ -40,7 +40,7 @@ until its user-facing flows have Playwright coverage in `tests/e2e/`, not just V
 1. Link a Stock Product "Leite Moça 395g" to the Ingredient above (package amount 395, unit `g`); register two Batches at different prices and expiration dates.
 2. Try linking a Stock Product measured in `ml` to that same `g` Ingredient; confirm it is rejected (FR-010, dimension check).
 3. Use the bulk-pack entry to register a case of 24 units of the Material at a total price, **leaving the expiration date empty** — molds do not expire (FR-011); confirm the derived per-unit price matches `total / 24`.
-4. **Expected**: each Ingredient Batch shows `remaining_amount` in grams (e.g. 10 × 395 g = 3950 g), not a package count; the Material Batch persists with no expiration date; the bulk-pack Batch's `unit_price` is the derived per-package figure (FR-013).
+4. **Expected**: each Ingredient Batch shows `remaining_amount` in grams (e.g. 10 × 395 g = 3950 g), not a package count; the Material Batch persists with no expiration date; the bulk-pack Batch's `package_price` is the derived per-package figure (FR-013).
 
 ### US3 — Order Budgeting (P3)
 

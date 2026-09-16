@@ -22,8 +22,8 @@ Open this repo in IntelliJ IDEA with the [Gateway / Dev Containers
 plugin](https://www.jetbrains.com/help/idea/connect-to-devcontainer.html), or
 in VS Code with the Dev Containers extension. The container build installs
 Node 24, the Supabase CLI, `uv` + Spec Kit's `specify` CLI, Claude Code, and
-the GitHub CLI, and mounts your host SSH keys, git config, and Claude auth
-state (see [Mounts caveats](#mounts-caveats) below).
+the GitHub CLI, and mounts your host `gh` credentials, git config, and Claude
+auth state (see [Mounts caveats](#mounts-caveats) below).
 
 ### 2. Supabase project
 
@@ -90,11 +90,19 @@ auth as the allowed user first (creating that local-only account on first run
 via `signUp`, since a fresh `supabase start` has none). `LoginGate` and every
 RLS policy still run unmodified; only the OAuth step is swapped out.
 
-One-time setup:
+The devcontainer already downloads the browser: `.devcontainer/post-create.sh`
+runs `npx playwright install --with-deps chromium` right after `npm install`, so
+a freshly created container can run the suite as-is. Outside the devcontainer,
+or after bumping `@playwright/test` to a version whose browser build you don't
+have yet, run it yourself:
 
 ```bash
-npx playwright install --with-deps chromium
+RES_OPTIONS=no-aaaa npx playwright install --with-deps chromium
 ```
+
+The `RES_OPTIONS=no-aaaa` prefix forces IPv4-only name resolution and is what
+post-create uses — see the Playwright entry under Mounts caveats for why. Drop
+it if your network's IPv6 works.
 
 Then, with the local stack running (`supabase start`):
 
@@ -162,11 +170,12 @@ a personal project, but worth knowing that's what the alias does.
 
 ## Mounts caveats
 
-- **SSH**: mounted read-only from `~/.ssh`. Works immediately if your key
-  has no passphrase. If it does, agent forwarding via `SSH_AUTH_SOCK` is
-  attempted but is Linux-host-reliable only — on macOS/Windows with Docker
-  Desktop you may need to unlock the key manually once inside the
-  container, or switch to a passphrase-less deploy key for this repo.
+- **Git auth**: no SSH keys are mounted into this container. `post-create.sh`
+  runs `gh auth setup-git` (requires the `gh` credentials mount above to
+  already be logged in — run `gh auth login` on the host first if needed)
+  and rewrites any `git@github.com:` remote to `https://github.com/...` so
+  the `gh` credential helper actually intercepts it. `git push`/`pull`
+  therefore authenticate through the same token as `gh`.
 - **Git config**: your host `~/.gitconfig` is included, then `user.email`
   is overridden to `erdanielli@gmail.com` (see `.devcontainer/post-create.sh`).
 - **Claude auth**: mounted read-write from `~/.claude`. If that directory
@@ -176,6 +185,16 @@ a personal project, but worth knowing that's what the alias does.
 - **Docker**: uses `docker-outside-of-docker`, so `docker` commands inside
   the container talk to your host's existing Docker daemon. Nothing extra
   to configure since Docker is already running on your host.
+- **Playwright downloads**: `--network=host` means the container inherits the
+  host's network, including a host that advertises IPv6 but cannot actually
+  route it — connections to AAAA addresses hang instead of being refused.
+  Playwright's browser downloader tries AAAA first with a 5s per-attempt
+  budget and aborts the request instead of falling back to IPv4, so
+  `npx playwright install` fails with a misleading `Request to
+  https://cdn.playwright.dev/... timed out after 30000ms`, even though `curl`
+  on the same URL is fine. Prefixing the command with `RES_OPTIONS=no-aaaa`
+  (glibc's "don't query AAAA" resolver option) is enough; post-create does
+  this already.
 
 ## Data model
 

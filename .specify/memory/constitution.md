@@ -13,7 +13,12 @@ This principle extends to full user-facing flows: every feature that adds or cha
 also carry Playwright end-to-end regression coverage under `tests/e2e/`, authenticated via the
 local `dev-preview.html` entry point (see README.md) since the real Google OAuth flow cannot be
 driven by automation — a feature is not done with only unit/component tests if it exposes a
-user-facing flow. Rationale: with a single developer and no code review from a second person, an
+user-facing flow. Unlike unit and component tests, an e2e spec is **regression** coverage for a
+flow that already works: it is written against that story's completed implementation and
+confirmed **passing**, not red-green failing-first. The failing-first rule above is what drives
+the implementation; the e2e spec is what locks the finished flow against later drift, so
+requiring it to fail first would only mean asserting against a flow nobody has built yet.
+Rationale: with a single developer and no code review from a second person, an
 automated, test-first record of intended behavior is the only reliable defense against
 regressions introduced weeks or months apart; e2e coverage closes the gap unit/component tests
 leave, since those run against a stub client and never exercise the real Supabase network layer,
@@ -107,6 +112,21 @@ rather than left implicit in code alone. Rationale: idiomatic code is easier for
 returning solo maintainer to reason about, and a written reference prevents conventions from
 being reinvented or forgotten between work sessions.
 
+### XII. UI Prototyping Before Implementation
+For any user story whose tasks include new or changed UI screens or components, a working
+throwaway React prototype — real components and screens driven by mock/static data only, with
+no tests and no Supabase wiring — MUST be built once that story's tasks exist (after
+`/speckit-tasks`) and explicitly approved by Eduardo before any of that story's implementation
+tasks begin in `/speckit-implement`. Prototype code lives under `prototypes/` at the repo root,
+which MUST be gitignored and MUST NOT be committed to `main` or any feature branch; it exists
+only long enough for Eduardo to click through it locally before it is discarded. The prototype
+MUST NOT be promoted into production code or extended with tests — the real implementation is
+written from scratch afterward via Principle I's full red-green-refactor TDD, even where it ends
+up visually resembling the approved prototype. Rationale: too many issues surfaced only after
+User Story 1 (Catalog) was fully implemented and tested, when they were already expensive to
+change; a cheap, disposable prototype surfaces layout, interaction, and UX problems before the
+costlier test-first implementation locks in a structure.
+
 ## Security & Secrets Requirements
 
 `.env` holding real Supabase credentials MUST NOT be committed; only `.env.example` with
@@ -120,8 +140,9 @@ that email is a configuration change, not something requiring a constitution ame
 ## Development Workflow
 
 All feature work MUST go through the Spec Kit cycle — `/speckit-specify` → `/speckit-plan` →
-`/speckit-tasks` → `/speckit-implement` — in that order; ad hoc feature code without a spec is
-not permitted beyond a trivial one-line fix. `npm run lint`, `npm run build`, `npm test`,
+`/speckit-tasks` → [UI prototype + Eduardo approval per Principle XII, for each user story with
+UI work] → `/speckit-implement` — in that order; ad hoc feature code without a spec is not
+permitted beyond a trivial one-line fix. `npm run lint`, `npm run build`, `npm test`,
 `npm run test:db`, and `npm run test:e2e` MUST all pass before a commit is considered done;
 `.github/workflows/ci.yml` runs the same checks on every pull request. Deployment is automatic
 on push to `main` via `.github/workflows/deploy.yml`, and there is no separate staging
@@ -129,11 +150,15 @@ environment, so `main` MUST always be deployable. Schema changes MUST be added a
 files under `supabase/migrations/` and applied via `supabase db push`; hand-editing schema
 directly in the Supabase dashboard is not permitted. All end-user-facing pt_BR text — UI labels,
 buttons, confirmation dialogs, and error messages — MUST be presented to Eduardo for consent
-before shipping, to support accurate translation and wording review with Gisely's usage in mind.
-The devcontainer MUST expose every port the app and any local Supabase stack use to the host via
-Docker port publishing, since the container itself has no graphical interface; `npm run dev`
-(and local Supabase emulation, if used) MUST be reachable from the host machine's browser at
-`localhost`. Spec Kit work MUST stay integrated with GitHub's own tooling rather than living
+before shipping, to support accurate translation and wording review with Gisely's usage in mind;
+Principle XII's prototype approval reuses this same explicit-consent pattern before implementation
+starts. The devcontainer MUST make every port the app and any local Supabase stack use reachable from
+the host machine's browser at `localhost`, since the container itself has no graphical
+interface; `npm run dev` (and local Supabase emulation, if used) MUST be reachable this way.
+Docker port publishing (`forwardPorts`) is the default mechanism, but sharing the host's network
+namespace outright (`--network=host`) is an acceptable substitute when per-port forwarding
+conflicts with a tool that also binds those ports from the host side, such as an IDE's own
+port forwarder. Spec Kit work MUST stay integrated with GitHub's own tooling rather than living
 only in local files: tasks generated by `/speckit-tasks` MUST be pushed to GitHub Issues via
 `/speckit-taskstoissues` so progress is tracked there, and non-trivial changes MUST go through a
 GitHub pull request reviewed with the `/code-review` skill (or the cloud `ultrareview` flow for
@@ -151,4 +176,4 @@ MUST be checked against these principles; a plan that conflicts with a NON-NEGOT
 setup and runtime instructions; this constitution governs process and non-negotiable
 constraints only.
 
-**Version**: 1.5.0 | **Ratified**: 2026-09-15 | **Last Amended**: 2026-09-16
+**Version**: 1.6.2 | **Ratified**: 2026-09-15 | **Last Amended**: 2026-09-16

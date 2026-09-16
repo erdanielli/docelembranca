@@ -18,15 +18,6 @@
   "remoteUser": "node",
 
   "mounts": [
-    // Host SSH keys (read-only) — your GitHub SSH key already works on
-    // the host, this makes it available inside the container as-is.
-    "source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,type=bind,readonly,z",
-
-    // Host ssh-agent socket, best effort. Works out of the box on Linux
-    // hosts. On macOS/Windows with Docker Desktop this may not forward
-    // automatically — see README troubleshooting section.
-    "source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind",
-
     // Host git config (read-only) — included from the container's own
     // gitconfig, which then overrides user.email (see post-create.sh).
     "source=${localEnv:HOME}/.gitconfig,target=/home/node/.gitconfig-host,type=bind,readonly,z",
@@ -40,10 +31,11 @@
     "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind,z",
 
     // GitHub CLI credentials. Without this the token lives only in the
-    // container layer, so every rebuild silently logs `gh` out again — git
-    // itself keeps working over SSH, which makes the logout easy to miss
-    // until a `gh pr` call fails. If ~/.config/gh does not exist on the host
-    // yet, run `gh auth login` once (see the Mounts caveats in README.md).
+    // container layer, so every rebuild silently logs `gh` out again — and
+    // since post-create.sh wires git itself to authenticate through `gh`
+    // (no SSH keys in this container), a stale token breaks both `gh` and
+    // `git push`/`pull`. If ~/.config/gh does not exist on the host yet, run
+    // `gh auth login` once (see the Mounts caveats in README.md).
     "source=${localEnv:HOME}/.config/gh,target=/home/node/.config/gh,type=bind,z",
 
     // Claude Code also keeps onboarding/session state in a top-level
@@ -52,10 +44,6 @@
     // when the credentials file is readable, and it still asks to log in.
     "source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind,z"
   ],
-
-  "containerEnv": {
-    "SSH_AUTH_SOCK": "/ssh-agent"
-  },
 
   "postCreateCommand": "bash .devcontainer/post-create.sh",
 

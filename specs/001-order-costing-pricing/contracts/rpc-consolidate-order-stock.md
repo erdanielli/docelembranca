@@ -20,6 +20,8 @@ By the time an Order reaches `awaiting_consolidation`, every one of its reservat
 1. Validates `p_stock_batch_id` was reserved for `p_order_recipe_line_id` (via `order_stock_reservations`); rejects otherwise.
 2. Inserts an `order_stock_consumptions` row with `consumed_amount` and `confirmed_at = now()`. The unique (line, Batch) constraint makes re-confirming the same pair an error rather than a silent double deduction.
 3. Decrements `stock_batches.remaining_amount` by `consumed_amount` — same unit on both sides (data-model.md, "Amounts vs. packages"), so a 200 g draw from a 395 g can leaves 195 g. The amount may differ from what was reserved; that difference is precisely what FR-035's comparison reports.
+
+   This call deliberately leaves the `order_stock_reservations` row in place, because `unit_cost_snapshot` on it is what FR-035 compares the real cost against. Double-counting is avoided on the read side instead: `stock_batch_availability.reserved_amount` excludes any reservation that already has a matching consumption row, so the moment step 2 inserts one, that commitment stops competing with other Orders for the Batch. Without that exclusion the Order would hold both the deducted amount *and* its original commitment against the same Batch for as long as it sits in `awaiting_consolidation` — which is an active status, and which it stays in until the last item is confirmed.
 4. Checks whether every `order_stock_reservations` row for the parent Order now has a matching `order_stock_consumptions` row; if so, calls `transition_order_status` internally to move the Order to `consolidated` (FR-034).
 5. Runs in a single transaction per call.
 

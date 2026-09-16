@@ -35,9 +35,11 @@ function selectBatchesForNeed(
 
 Implements FR-022 exactly as the RPC does:
 
-1. Discard batches where `available_amount <= 0`, and batches already expired (`expiration_date < today`) — expired stock is never chosen automatically.
-2. Order by: batches expiring within the next 15 days first, cheapest first within that group; then the rest, cheapest first. Ties broken by earliest `expiration_date`, then by `stock_batch_id` so the preview and the RPC cannot disagree.
+1. Discard batches where `available_amount <= 0`, and batches already expired (`expirationDate !== null && expirationDate < today`) — expired stock is never chosen automatically.
+2. Order by: batches expiring within the next 15 days first (`expirationDate !== null && expirationDate <= today + 15 days`), cheapest first within that group; then the rest, cheapest first. Ties broken by earliest `expirationDate` with `null` sorting **last**, then by `stockBatchId` so the preview and the RPC cannot disagree.
 3. Draw greedily until the need is met; whatever is left over is `shortfallAmount`.
+
+**The `null` `expirationDate` case needs an explicit guard at all three points above.** An undated Batch is the normal case for Materials (FR-011): never expired, never "expiring soon", and it loses a price tie. This is the one place where a naive port between the two implementations diverges. The SQL side gets it from the view's `coalesce` plus an explicit `NULLS LAST` (data-model.md, rpc-reserve-stock-for-order.md); the TypeScript side needs the `!== null` guards written out, because JavaScript will not fail loudly on `null < today` or `null <= today + 15` — it coerces `null` to `0` and quietly returns whichever answer the operand's type happens to produce, so an undated Batch would silently land on one side of the boundary or the other without anything raising.
 
 Pure and `today`-injected, so the 15-day boundary is testable without mocking the clock.
 
@@ -76,9 +78,9 @@ Implements FR-024/FR-025/FR-026/FR-027 in this order:
 
 1. `cost` = ingredient + material cost for the line.
 2. `profitAmount` = `cost * profitPercent / 100` (per line, FR-025).
-3. `laborAllocation` = the Order's single labor cost split across lines **in proportion to each line's `cost`** (FR-027). When every line's cost is 0, it is split evenly instead, so labor is never silently dropped.
+3. `laborAllocation` = the Order's single labor cost split across lines **in proportion to each line's `cost`** (FR-027). When every line's cost is 0 there is no proportion to divide by, so it is split evenly instead and labor is never silently dropped — FR-027 specifies this fallback directly, rather than it being a contract-local invention.
 4. `subtotal` = `cost + profitAmount + laborAllocation`; `subtotalBeforeDiscount` = the sum of those.
-5. `discountAmount` = `subtotalBeforeDiscount * discountPercent / 100` (once for the Order, FR-026), allocated per line in proportion to each line's `subtotal`.
+5. `discountAmount` = `subtotalBeforeDiscount * discountPercent / 100` (once for the Order, FR-026), allocated per line in proportion to each line's `subtotal`. When `subtotalBeforeDiscount` is 0 the Order's `discountAmount` is 0 too, and every line's share is 0 — stated explicitly because the proportional formula is `0/0` there (FR-027).
 6. `finalPrice` = `subtotalBeforeDiscount − discountAmount`; per line, `subtotal − discountAmount`, and `pricePerUnit` = that divided by `requestedQuantity` — the number the confectioner actually quotes ("R$ X the hundred").
 
 Allocations are computed on unrounded values; rounding to centavos happens only at display, so the per-line figures always add back up to the Order total.
