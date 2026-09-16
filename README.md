@@ -22,8 +22,8 @@ Open this repo in IntelliJ IDEA with the [Gateway / Dev Containers
 plugin](https://www.jetbrains.com/help/idea/connect-to-devcontainer.html), or
 in VS Code with the Dev Containers extension. The container build installs
 Node 24, the Supabase CLI, `uv` + Spec Kit's `specify` CLI, Claude Code, and
-the GitHub CLI, and mounts your host SSH keys, git config, and Claude auth
-state (see [Mounts caveats](#mounts-caveats) below).
+the GitHub CLI, and mounts your host `gh` credentials, git config, and Claude
+auth state (see [Mounts caveats](#mounts-caveats) below).
 
 ### 2. Supabase project
 
@@ -170,11 +170,12 @@ a personal project, but worth knowing that's what the alias does.
 
 ## Mounts caveats
 
-- **SSH**: mounted read-only from `~/.ssh`. Works immediately if your key
-  has no passphrase. If it does, agent forwarding via `SSH_AUTH_SOCK` is
-  attempted but is Linux-host-reliable only — on macOS/Windows with Docker
-  Desktop you may need to unlock the key manually once inside the
-  container, or switch to a passphrase-less deploy key for this repo.
+- **Git auth**: no SSH keys are mounted into this container. `post-create.sh`
+  runs `gh auth setup-git` (requires the `gh` credentials mount above to
+  already be logged in — run `gh auth login` on the host first if needed)
+  and rewrites any `git@github.com:` remote to `https://github.com/...` so
+  the `gh` credential helper actually intercepts it. `git push`/`pull`
+  therefore authenticate through the same token as `gh`.
 - **Git config**: your host `~/.gitconfig` is included, then `user.email`
   is overridden to `erdanielli@gmail.com` (see `.devcontainer/post-create.sh`).
 - **Claude auth**: mounted read-write from `~/.claude`. If that directory

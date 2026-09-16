@@ -14,12 +14,16 @@ else
   echo "    no host .gitconfig mounted, skipping"
 fi
 
-echo "==> Fixing SSH key permissions (bind mounts can lose strict perms)"
-if [ -d "$HOME/.ssh" ]; then
-  chmod 700 "$HOME/.ssh" || true
-  chmod 600 "$HOME"/.ssh/id_* 2>/dev/null || true
-  chmod 644 "$HOME"/.ssh/*.pub 2>/dev/null || true
+echo "==> Wiring git to authenticate through gh (no SSH keys in this container)"
+if gh auth status >/dev/null 2>&1; then
+  gh auth setup-git
+else
+  echo "    gh not authenticated yet — run 'gh auth login' then 'gh auth setup-git'"
 fi
+
+# Rewrite any git@github.com:... remotes to https so the gh credential
+# helper above actually intercepts them (it only hooks https:// URLs).
+git config --global url."https://github.com/".insteadOf "git@github.com:"
 
 echo "==> Installing npm dependencies"
 if [ -f "package.json" ]; then
