@@ -16,7 +16,7 @@ fi
 
 echo "==> Wiring git to authenticate through gh (no SSH keys in this container)"
 if gh auth status >/dev/null 2>&1; then
-  gh auth setup-git
+  gh auth setup-git || echo "    gh auth setup-git failed — rerun it manually once provisioning finishes"
 else
   echo "    gh not authenticated yet — run 'gh auth login' then 'gh auth setup-git'"
 fi
