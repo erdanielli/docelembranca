@@ -55,14 +55,25 @@ describe("IngredientList", () => {
     });
   });
 
-  it("keeps a deactivated Ingredient visible in the list, flagged as inactive", () => {
+  it("hides a deactivated Ingredient by default", () => {
     const stub = createSupabaseStub();
     const item = ingredient({ active: false });
 
     render(<IngredientList client={stub.client} ingredients={[item]} />);
 
+    expect(screen.queryByText("Leite condensado")).not.toBeInTheDocument();
+  });
+
+  it("shows a deactivated Ingredient once 'Mostrar excluídos' is checked, without an Editar action", () => {
+    const stub = createSupabaseStub();
+    const item = ingredient({ active: false });
+
+    render(<IngredientList client={stub.client} ingredients={[item]} />);
+
+    fireEvent.click(screen.getByLabelText("Mostrar excluídos"));
+
     expect(screen.getByText("Leite condensado")).toBeInTheDocument();
-    expect(screen.getByText("Inativo")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reativar" })).toBeInTheDocument();
   });
 });

@@ -1,27 +1,30 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { DataClient } from "../../lib/dataClient";
-import type { Tables } from "../../lib/database.types";
-import type { CatalogEntityTable } from "./CatalogEntityForm";
+import { PencilIcon, RestoreIcon, TrashIcon } from "../../components/icons";
 
-// See CatalogEntityForm: ingredients and materials share an identical shape.
-type Entity = Tables<"ingredients">;
+export type CatalogEntityTable = "ingredients" | "materials" | "recipes";
 
-export function CatalogEntityList({
+type BaseEntity = { id: string; name: string; active: boolean };
+
+export function CatalogEntityList<T extends BaseEntity>({
   client,
   table,
   entities,
+  renderMeta,
   onEdit,
   onChanged,
 }: {
   client: DataClient;
   table: CatalogEntityTable;
-  entities: readonly Entity[];
-  onEdit?: (entity: Entity) => void;
+  entities: readonly T[];
+  renderMeta?: (entity: T) => ReactNode;
+  onEdit?: (entity: T) => void;
   onChanged?: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
-  const toggleActive = async (entity: Entity) => {
+  const toggleActive = async (entity: T) => {
     setError(null);
     const { error: toggleError } = await client
       .from(table as "ingredients")
@@ -35,6 +38,8 @@ export function CatalogEntityList({
     onChanged?.();
   };
 
+  const visible = showInactive ? entities : entities.filter((entity) => entity.active);
+
   return (
     <>
       {error && (
@@ -42,17 +47,39 @@ export function CatalogEntityList({
           {error}
         </p>
       )}
+      <label className="list__filter">
+        <input
+          type="checkbox"
+          checked={showInactive}
+          onChange={(event) => setShowInactive(event.target.checked)}
+        />
+        Mostrar excluídos
+      </label>
       <ul className="list">
-        {entities.map((entity) => (
-          <li key={entity.id} className="list__row">
+        {visible.map((entity) => (
+          <li
+            key={entity.id}
+            className={`list__row${entity.active ? "" : " list__row--inactive"}`}
+          >
             <span className="list__title">{entity.name}</span>
-            <span className="list__meta">{entity.unit}</span>
-            {!entity.active && <span className="list__badge">Inativo</span>}
-            <button type="button" className="list__action" onClick={() => onEdit?.(entity)}>
-              Editar
-            </button>
-            <button type="button" className="list__action" onClick={() => toggleActive(entity)}>
-              {entity.active ? "Desativar" : "Reativar"}
+            {renderMeta && <span className="list__meta">{renderMeta(entity)}</span>}
+            {entity.active && (
+              <button
+                type="button"
+                className="list__icon-btn list__icon-btn--accent"
+                aria-label="Editar"
+                onClick={() => onEdit?.(entity)}
+              >
+                <PencilIcon />
+              </button>
+            )}
+            <button
+              type="button"
+              className={`list__icon-btn${entity.active ? " list__icon-btn--danger" : " list__icon-btn--accent"}`}
+              aria-label={entity.active ? "Desativar" : "Reativar"}
+              onClick={() => toggleActive(entity)}
+            >
+              {entity.active ? <TrashIcon /> : <RestoreIcon />}
             </button>
           </li>
         ))}

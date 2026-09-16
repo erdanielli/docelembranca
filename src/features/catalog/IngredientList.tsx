@@ -20,6 +20,7 @@ export function IngredientList({
       client={client}
       table="ingredients"
       entities={ingredients}
+      renderMeta={(ingredient) => ingredient.unit}
       onEdit={onEdit}
       onChanged={onChanged}
     />
