@@ -9,9 +9,15 @@ minimum code to pass it, then refactoring with tests green throughout. This appl
 components (via component-level tests, e.g. React Testing Library) and to data/logic code
 alike — no layer is exempt for being "just UI" or "just a script." A task is not done if its
 test was written after, or alongside without first failing against, the implementation.
-Rationale: with a single developer and no code review from a second person, an automated,
-test-first record of intended behavior is the only reliable defense against regressions
-introduced weeks or months apart.
+This principle extends to full user-facing flows: every feature that adds or changes one MUST
+also carry Playwright end-to-end regression coverage under `tests/e2e/`, authenticated via the
+local `dev-preview.html` entry point (see README.md) since the real Google OAuth flow cannot be
+driven by automation — a feature is not done with only unit/component tests if it exposes a
+user-facing flow. Rationale: with a single developer and no code review from a second person, an
+automated, test-first record of intended behavior is the only reliable defense against
+regressions introduced weeks or months apart; e2e coverage closes the gap unit/component tests
+leave, since those run against a stub client and never exercise the real Supabase network layer,
+RLS policies, or `LoginGate` together.
 
 ### II. Serverless, Static-First Architecture
 The application MUST remain a static frontend (Vite + React + TypeScript) deployed to GitHub
@@ -115,15 +121,16 @@ that email is a configuration change, not something requiring a constitution ame
 
 All feature work MUST go through the Spec Kit cycle — `/speckit-specify` → `/speckit-plan` →
 `/speckit-tasks` → `/speckit-implement` — in that order; ad hoc feature code without a spec is
-not permitted beyond a trivial one-line fix. `npm run build` and `npm run lint` MUST pass before
-a commit is considered done. Deployment is automatic on push to `main` via
-`.github/workflows/deploy.yml`, and there is no separate staging environment, so `main` MUST
-always be deployable. Schema changes MUST be added as migration files under
-`supabase/migrations/` and applied via `supabase db push`; hand-editing schema directly in the
-Supabase dashboard is not permitted. All end-user-facing pt_BR text — UI labels, buttons,
-confirmation dialogs, and error messages — MUST be presented to Eduardo for consent before
-shipping, to support accurate translation and wording review with Gisely's usage in mind. The
-devcontainer MUST expose every port the app and any local Supabase stack use to the host via
+not permitted beyond a trivial one-line fix. `npm run lint`, `npm run build`, `npm test`,
+`npm run test:db`, and `npm run test:e2e` MUST all pass before a commit is considered done;
+`.github/workflows/ci.yml` runs the same checks on every pull request. Deployment is automatic
+on push to `main` via `.github/workflows/deploy.yml`, and there is no separate staging
+environment, so `main` MUST always be deployable. Schema changes MUST be added as migration
+files under `supabase/migrations/` and applied via `supabase db push`; hand-editing schema
+directly in the Supabase dashboard is not permitted. All end-user-facing pt_BR text — UI labels,
+buttons, confirmation dialogs, and error messages — MUST be presented to Eduardo for consent
+before shipping, to support accurate translation and wording review with Gisely's usage in mind.
+The devcontainer MUST expose every port the app and any local Supabase stack use to the host via
 Docker port publishing, since the container itself has no graphical interface; `npm run dev`
 (and local Supabase emulation, if used) MUST be reachable from the host machine's browser at
 `localhost`. Spec Kit work MUST stay integrated with GitHub's own tooling rather than living
@@ -144,4 +151,4 @@ MUST be checked against these principles; a plan that conflicts with a NON-NEGOT
 setup and runtime instructions; this constitution governs process and non-negotiable
 constraints only.
 
-**Version**: 1.4.0 | **Ratified**: 2026-09-15 | **Last Amended**: 2026-09-15
+**Version**: 1.5.0 | **Ratified**: 2026-09-15 | **Last Amended**: 2026-09-16

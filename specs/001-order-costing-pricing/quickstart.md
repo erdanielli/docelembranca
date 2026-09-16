@@ -19,7 +19,11 @@ npm run lint      # must pass
 npm run build     # must pass (tsc -b && vite build)
 npm test          # Vitest: unit (src/lib/costing, src/lib/units) + component (RTL)
 npm run test:db   # pgTAP: RPCs, views, triggers, and RLS policies, tested inside Postgres
+npm run test:e2e  # Playwright: browser regression tests against the local stack — see README.md
 ```
+
+All four are required — `.github/workflows/ci.yml` runs them on every PR — and a feature isn't done
+until its user-facing flows have Playwright coverage in `tests/e2e/`, not just Vitest coverage.
 
 ## Manual validation scenarios
 

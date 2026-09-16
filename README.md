@@ -79,6 +79,37 @@ For the same reason `.devcontainer/devcontainer.json` declares no `forwardPorts`
 with a shared namespace the IDE's forwarders would bind 54321-54324 on the host
 loopback first, and `supabase start` would fail with `address already in use`.
 
+### 2c. E2E tests (Playwright)
+
+The real app is gated by Google OAuth (`LoginGate`), which no browser
+automation tool can drive directly, and the local Supabase stack has no
+Google provider configured. E2E tests instead open `dev-preview.html`
+(`src/dev-preview.tsx`) — a scratch entry point, not part of the shipped
+build, that renders the same `<App />` but signs in via local email/password
+auth as the allowed user first (creating that local-only account on first run
+via `signUp`, since a fresh `supabase start` has none). `LoginGate` and every
+RLS policy still run unmodified; only the OAuth step is swapped out.
+
+One-time setup:
+
+```bash
+npx playwright install --with-deps chromium
+```
+
+Then, with the local stack running (`supabase start`):
+
+```bash
+npm run test:e2e
+```
+
+This starts its own Vite dev server on a dedicated port (5183, to avoid
+clashing with an IDE-managed instance that may already be squatting 5173) and
+tears it down after the run; `supabase start` still has to be running
+separately since dev-preview signs in against it. Tests live under
+`tests/e2e/`, alongside the unit/component tests in `tests/` (Playwright
+matches `*.spec.ts`, Vitest matches `*.test.{ts,tsx}`, so the two runners
+never pick up each other's files).
+
 ### 3. Environment variables
 
 ```bash
