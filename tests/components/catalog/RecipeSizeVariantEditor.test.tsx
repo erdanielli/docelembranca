@@ -149,18 +149,14 @@ describe("RecipeSizeVariantEditor", () => {
       const ingredientInsert = stub.calls.find(
         (call) => call.method === "recipe_variant_ingredients.insert",
       );
-      expect(ingredientInsert?.args[0]).toEqual({
-        variant_id: "var-1",
-        ingredient_id: "ing-active",
-        amount: 15,
-      });
+      expect(ingredientInsert?.args[0]).toEqual([
+        { variant_id: "var-1", ingredient_id: "ing-active", amount: 15 },
+      ]);
 
       const materialInsert = stub.calls.find((call) => call.method === "recipe_variant_materials.insert");
-      expect(materialInsert?.args[0]).toEqual({
-        variant_id: "var-1",
-        material_id: "mat-active",
-        amount: 1,
-      });
+      expect(materialInsert?.args[0]).toEqual([
+        { variant_id: "var-1", material_id: "mat-active", amount: 1 },
+      ]);
     });
   });
 
@@ -212,8 +208,8 @@ describe("RecipeSizeVariantEditor", () => {
         (call) => call.method === "recipe_variant_ingredients.insert",
       );
       expect(ingredientInserts.map((call) => call.args[0])).toEqual([
-        { variant_id: "var-1", ingredient_id: "ing-active", amount: 10 },
-        { variant_id: "var-1", ingredient_id: "ing-active", amount: 30 },
+        [{ variant_id: "var-1", ingredient_id: "ing-active", amount: 10 }],
+        [{ variant_id: "var-1", ingredient_id: "ing-active", amount: 30 }],
       ]);
     });
   });
@@ -395,11 +391,9 @@ describe("RecipeSizeVariantEditor", () => {
       const ingredientInsert = stub.calls.find(
         (call) => call.method === "recipe_variant_ingredients.insert",
       );
-      expect(ingredientInsert?.args[0]).toEqual({
-        variant_id: "var-1",
-        ingredient_id: "ing-active",
-        amount: 20,
-      });
+      expect(ingredientInsert?.args[0]).toEqual([
+        { variant_id: "var-1", ingredient_id: "ing-active", amount: 20 },
+      ]);
       expect(onSaved).toHaveBeenCalled();
     });
   });

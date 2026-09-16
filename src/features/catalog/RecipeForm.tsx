@@ -49,24 +49,10 @@ export function RecipeForm({
   const deleteVariant = async (variant: RecipeSizeVariant) => {
     setVariantError(null);
 
-    const { error: ingredientsError } = await client
-      .from("recipe_variant_ingredients")
-      .delete()
-      .eq("variant_id", variant.id);
-    if (ingredientsError) {
-      setVariantError(ingredientsError.message);
-      return;
-    }
-
-    const { error: materialsError } = await client
-      .from("recipe_variant_materials")
-      .delete()
-      .eq("variant_id", variant.id);
-    if (materialsError) {
-      setVariantError(materialsError.message);
-      return;
-    }
-
+    // recipe_variant_ingredients/materials cascade on variant_id (migration
+    // 20260916030000), so this single delete removes the variant's
+    // composition rows atomically instead of three separate round trips
+    // that could leave the variant partially deleted if one failed.
     const { error: deleteError } = await client.from("recipe_size_variants").delete().eq("id", variant.id);
     if (deleteError) {
       setVariantError(deleteError.message);

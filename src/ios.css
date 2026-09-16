@@ -383,15 +383,6 @@ input {
   font-size: 13px;
 }
 
-.list__action {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: 14px;
-  font-weight: 600;
-  padding: 4px 6px;
-}
-
 .list__filter {
   display: flex;
   align-items: center;

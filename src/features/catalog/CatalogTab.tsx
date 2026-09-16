@@ -122,6 +122,11 @@ export function CatalogTab({ client }: { client: DataClient }) {
           })),
         );
       } catch {
+        // A failed fetch must not leave a previous variant's rows in state —
+        // otherwise the editor below opens under this variant's name but
+        // pre-filled with another variant's composition.
+        setEditingVariantIngredientRows([]);
+        setEditingVariantMaterialRows([]);
         setEditingVariant(variant);
       }
     },

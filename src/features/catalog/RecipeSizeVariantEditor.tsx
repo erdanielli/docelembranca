@@ -112,31 +112,35 @@ export function RecipeSizeVariantEditor({
       variantId = created.id;
     }
 
-    for (const row of ingredientRows) {
+    // Inserted as one array, not row-by-row: PostgREST runs a multi-row
+    // insert as a single INSERT statement, so on update (after the old rows
+    // were just deleted) a rejected row aborts the whole insert instead of
+    // leaving the variant with only some of its new composition rows.
+    const { error: ingredientsInsertError } = await client.from("recipe_variant_ingredients").insert(
       // Amounts round-trip through Number() here and back on read — Postgres
       // `numeric` columns come back from PostgREST as strings, not numbers,
       // despite what the generated types say.
-      const { error: rowError } = await client.from("recipe_variant_ingredients").insert({
+      ingredientRows.map((row) => ({
         variant_id: variantId,
         ingredient_id: row.ingredientId,
         amount: Number(row.amount),
-      });
-      if (rowError) {
-        setError(rowError.message);
-        return;
-      }
+      })),
+    );
+    if (ingredientsInsertError) {
+      setError(ingredientsInsertError.message);
+      return;
     }
 
-    for (const row of materialRows) {
-      const { error: rowError } = await client.from("recipe_variant_materials").insert({
+    const { error: materialsInsertError } = await client.from("recipe_variant_materials").insert(
+      materialRows.map((row) => ({
         variant_id: variantId,
         material_id: row.materialId,
         amount: Number(row.amount),
-      });
-      if (rowError) {
-        setError(rowError.message);
-        return;
-      }
+      })),
+    );
+    if (materialsInsertError) {
+      setError(materialsInsertError.message);
+      return;
     }
 
     if (!variant) {
@@ -150,9 +154,14 @@ export function RecipeSizeVariantEditor({
   const usedIngredientIds = new Set(ingredientRows.map((row) => row.ingredientId).filter(Boolean));
   const usedMaterialIds = new Set(materialRows.map((row) => row.materialId).filter(Boolean));
 
-  const addIngredientDisabled =
-    activeIngredients.length === 0 || ingredientRows.length >= activeIngredients.length;
-  const addMaterialDisabled = activeMaterials.length === 0 || materialRows.length >= activeMaterials.length;
+  // Counting rows (rather than active ingredients/materials not yet used)
+  // would undercount availability once a row's ingredient/material has since
+  // been deactivated: that row still occupies a slot but no longer accounts
+  // for one of the active options being unavailable.
+  const addIngredientDisabled = activeIngredients.every((ingredient) =>
+    usedIngredientIds.has(ingredient.id),
+  );
+  const addMaterialDisabled = activeMaterials.every((material) => usedMaterialIds.has(material.id));
 
   return (
     <form className="form" onSubmit={handleSubmit}>

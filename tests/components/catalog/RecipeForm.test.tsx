@@ -86,7 +86,7 @@ describe("RecipeForm", () => {
     expect(onEditVariant).toHaveBeenCalledWith(variants[0]);
   });
 
-  it("deletes a Size Variant along with its composition rows and notifies the caller", async () => {
+  it("deletes a Size Variant, relying on the DB to cascade its composition rows, and notifies the caller", async () => {
     const stub = createSupabaseStub();
     const onVariantsChanged = vi.fn();
 
@@ -102,17 +102,14 @@ describe("RecipeForm", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Excluir tamanho" })[0]);
 
     await vi.waitFor(() => {
-      expect(
-        stub.calls.some(
-          (call) => call.method === "recipe_variant_ingredients.delete",
-        ),
-      ).toBe(true);
-      expect(
-        stub.calls.some((call) => call.method === "recipe_variant_materials.delete"),
-      ).toBe(true);
       const variantDelete = stub.calls.find((call) => call.method === "recipe_size_variants.delete");
       expect(variantDelete).toBeDefined();
       expect(onVariantsChanged).toHaveBeenCalled();
     });
+
+    // recipe_variant_ingredients/materials cascade on variant_id (migration
+    // 20260916030000), so the app no longer needs to delete them itself.
+    expect(stub.calls.some((call) => call.method === "recipe_variant_ingredients.delete")).toBe(false);
+    expect(stub.calls.some((call) => call.method === "recipe_variant_materials.delete")).toBe(false);
   });
 });

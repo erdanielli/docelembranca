@@ -6,7 +6,7 @@
 begin;
 set local search_path to extensions, public;
 
-select plan(21);
+select plan(23);
 
 select has_table('public', 'recipes', 'recipes table exists');
 select has_table('public', 'recipe_size_variants', 'recipe_size_variants table exists');
@@ -131,6 +131,17 @@ select ok(
   (select updated_at from public.recipe_size_variants where name = 'Medium')
     > (select updated_at from _before_touch),
   'the touch_open_orders trigger bumps recipe_size_variants.updated_at when a composition row changes (FR-021b)'
+);
+
+select lives_ok(
+  $$ delete from public.recipe_size_variants where name = 'Medium' $$,
+  'deleting a size variant cascades to its composition rows in one statement'
+);
+
+select is(
+  (select count(*) from public.recipe_variant_ingredients)::int,
+  0,
+  'ON DELETE CASCADE removed the variant''s ingredient rows'
 );
 
 select set_config('request.jwt.claims', '{"email":"someone.else@example.com"}', true);
