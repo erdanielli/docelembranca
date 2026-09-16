@@ -18,6 +18,8 @@ Conversion is only ever valid within the same dimension (see research.md §3).
 
 Every quantity of an Ingredient/Material — what a Recipe line needs, what is reserved, what is consumed, what is left in a Batch — is an **amount in that item's own canonical `unit`** and lives in a column named `*_amount` (numeric). The only place a *package count* appears is `stock_batches.packages_purchased`, which describes the purchase, not the shelf: it is an input for deriving the Batch's starting amount and its per-unit cost, and is never subtracted from or compared against an amount (research.md §7).
 
+The same rule governs **prices**: every monetary column in this feature is per canonical unit — `future_stock_placeholders.estimated_unit_price`, `order_stock_reservations.unit_cost_snapshot`, `stock_batch_availability.cost_per_unit_amount` — with exactly one exception, `stock_batches.package_price`, which is per *package* and is named to say so. That column is the boundary where a purchase becomes shelf content; everything downstream of it is per canonical unit.
+
 This matters because a 395 g can used for 200 g of brigadeiro leaves 195 g, which a whole-package counter cannot express — and FR-014 requires exactly that partial remainder to be tracked.
 
 ## Catalog entities (User Story 1)
@@ -83,7 +85,7 @@ This matters because a 395 g can used for 200 g of brigadeiro leaves 195 g, whic
 - `id` (uuid, pk)
 - `stock_product_id` (fk → stock_products, required)
 - `packages_purchased` (integer > 0, required) — how many packages this purchase brought in (FR-011)
-- `unit_price` (numeric > 0, required) — price paid **per package** (FR-011); the bulk-pack quick entry (FR-013) derives it as `total_price / pack_size` in the UI before insert, so it is not a separate schema concept
+- `package_price` (numeric > 0, required) — price paid **per package** (FR-011); the bulk-pack quick entry (FR-013) derives it as `total_price / pack_size` in the UI before insert, so it is not a separate schema concept. Named `package_price` rather than `unit_price` deliberately: it is the only price in the feature that is not per canonical unit, and sitting it next to `estimated_unit_price` and `unit_cost_snapshot` under the old name invited precisely the mix-up the "Amounts vs. packages" section above exists to prevent
 - `initial_amount` (numeric > 0, required) — the Batch's starting content in the linked item's canonical unit, computed by trigger `derive_batch_amounts` as `packages_purchased * convert_unit(package_amount, package_unit, item.unit)`; immutable afterwards, so a later edit to the product's `package_amount` cannot silently rewrite history
 - `remaining_amount` (numeric ≥ 0, required, default = `initial_amount`) — reduced only by `consolidate_order_stock` (FR-014); reservations never touch it
 - `expiration_date` (date, **nullable**) — NULL means "does not expire", which is the normal case for Materials such as molds and mats (FR-011); a NULL-dated Batch never qualifies for FR-022's expiry priority
@@ -190,9 +192,11 @@ One row per Batch, resolving everything batch selection needs:
 - `remaining_amount`
 - `reserved_amount` — sum of `order_stock_reservations.reserved_amount` against this Batch from **active** Orders only (`quoting`, `awaiting_production`, `in_production`, `awaiting_consolidation`); canceled Orders have had theirs deleted, and consolidated Orders have already had their real consumption deducted from `remaining_amount`
 - `available_amount` = `remaining_amount` − `reserved_amount` (FR-031; this is what stops two open Orders from double-booking the same Batch)
-- `cost_per_unit_amount` = `unit_price / convert_unit(package_amount, package_unit, unit)` — price per canonical unit
-- `is_expired` = `expiration_date < current_date`
-- `expires_soon` = `expiration_date` between today and `current_date + 15 days`
+- `cost_per_unit_amount` = `package_price / convert_unit(package_amount, package_unit, unit)` — price per canonical unit
+- `is_expired` = `coalesce(expiration_date < current_date, false)`
+- `expires_soon` = `coalesce(expiration_date between current_date and current_date + interval '15 days', false)`
+
+**A NULL `expiration_date` MUST fold to `false` on both flags, never to NULL.** FR-011 makes an undated Batch the normal case for Materials (molds, mats): it has not expired, so it stays eligible, and it never will expire, so it never earns FR-022's 15-day priority — it competes on price alone in the second group. Without the `coalesce`, both flags are NULL for exactly those Batches, and each SQL consumer then gets them wrong in a different direction: a `where is_expired = false` filter drops them from selection entirely, so Materials could never be reserved at all, while an `order by expires_soon desc` sorts them **first** under PostgreSQL's NULLS FIRST default for `DESC`, putting a never-expiring forminha ahead of an ingredient expiring in ten days. Both failures are silent.
 
 ### `order_line_requirements`
 One row per (Recipe line × Ingredient/Material), the scaled need:

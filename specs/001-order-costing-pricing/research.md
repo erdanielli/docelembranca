@@ -13,7 +13,7 @@ Tests run with `globals: false`: each test imports `describe`/`it`/`expect` from
 **Alternatives considered**:
 - *Jest*: mature, but requires extra config to work with Vite's ESM/TS pipeline that Vitest gets for free; no advantage over Vitest here.
 - *supabase-js integration tests against a local stack (no pgTAP)*: the initially-chosen simpler single-framework approach; superseded because it tests RLS/RPC behavior through an extra layer of indirection (the JS client and its own error handling) rather than asserting on the database's actual behavior directly.
-- *Cypress/Playwright E2E*: valuable eventually for full user-journey coverage of the Order wizard, but out of scope for this feature's first pass; component tests + pgTAP are sufficient to satisfy Principle I for now. Can be reconsidered in a future feature if needed.
+- *Cypress/Playwright E2E*: valuable eventually for full user-journey coverage of the Order wizard, but out of scope for this feature's first pass; component tests + pgTAP are sufficient to satisfy Principle I for now. Can be reconsidered in a future feature if needed. **Superseded by constitution v1.5.0 — see §12.**
 
 ## 2. Where business logic lives: client TypeScript vs. Postgres functions
 
@@ -87,7 +87,9 @@ Adopted: Node 24.21 (the devcontainer already declared `typescript-node:24-bookw
 
 ## 9. Stock accounting in canonical amounts, not package counts
 
-**Decision**: A Batch records `packages_purchased` (an integer, describing the purchase) and `unit_price` (per package), and from those a trigger derives `initial_amount` and `remaining_amount` in the linked Ingredient's/Material's canonical unit. Every other quantity in the feature — a line's requirement, a reservation, a consumption, a shortfall, a placeholder's need — is an amount in that same canonical unit, and every cost is per canonical unit (`cost_per_unit_amount = unit_price / package content`).
+**Decision**: A Batch records `packages_purchased` (an integer, describing the purchase) and `package_price` (per package), and from those a trigger derives `initial_amount` and `remaining_amount` in the linked Ingredient's/Material's canonical unit. Every other quantity in the feature — a line's requirement, a reservation, a consumption, a shortfall, a placeholder's need — is an amount in that same canonical unit, and every cost is per canonical unit (`cost_per_unit_amount = package_price / package content`).
+
+The per-package price is called `package_price` rather than `unit_price` for the same reason amounts are never package counts: it is the single column in the feature whose denominator is a package, and every other price column (`estimated_unit_price`, `unit_cost_snapshot`, `cost_per_unit_amount`) is per canonical unit. Under the original `unit_price` name the schema read as though all four agreed, and the one that disagreed was the one feeding every cost calculation. The mirrored client helper is named `costPerUnitAmount` after the view column it reproduces, rather than the earlier `packageUnitCost`, which was ambiguous in the same direction.
 
 **Rationale**: The first design had `quantity_remaining` as an integer package count while reservations and consumptions were canonical-unit numerics, and `consolidate_order_stock` decremented one by the other. Beyond the type mismatch, a package counter cannot represent the normal case: a 395 g can used for 200 g leaves 195 g, and FR-014 requires that remainder to be tracked for the next Order to cost against. Deriving amounts once at insert keeps the per-unit cost and the remaining content in the same currency of measurement everywhere they meet, so no comparison in the feature needs to remember which of the two it is holding. `initial_amount` is kept alongside `remaining_amount` both for "how much of this batch is left" display and so a later edit to the product's `package_amount` cannot retroactively change a batch already partly consumed.
 
@@ -118,3 +120,25 @@ Adopted: Node 24.21 (the devcontainer already declared `typescript-node:24-bookw
 - *Piping each test file into `psql` via `docker exec`*: no new packages, but it gives up TAP parsing, so a failing assertion would have to be found by grepping output.
 
 **Note**: the runner is `pg_prove --recurse --ext .sql supabase/tests`; `--ext` is required, since pg_prove's recursive search otherwise looks for its default `.t` extension and silently finds nothing.
+
+## 12. Playwright e2e — supersedes §1's deferral
+
+**Decision**: §1's "out of scope for this feature's first pass" call on Cypress/Playwright is **superseded**, not merely revised — constitution v1.5.0 (2026-09-16) amended Principle I to make Playwright e2e coverage under `tests/e2e/` non-negotiable for every feature that adds or changes a user-facing flow, which this feature clearly does (Catalog, Stock, Order Budgeting, Order production). This is a constitution-driven override of a prior in-feature decision, not a reconsideration made during this feature's own design; the record is kept per Governance rather than deleted, per the same practice as the "Post-analyze re-check (revision 2)" note in `plan.md`.
+
+**Rationale**: same as recorded in the v1.5.0 amendment itself — unit/component tests run against a stub Supabase client and never exercise the real network layer, RLS policies, or `LoginGate` together, which is exactly the gap a single-developer, no-second-reviewer project cannot afford to leave uncovered.
+
+**What already exists**: US1 (Catalog) has retroactive e2e coverage — `tests/e2e/catalog-ingredients.spec.ts`, `catalog-materials.spec.ts`, `catalog-recipes.spec.ts` (commit `447a3f2`) — authenticated via the local `dev-preview.html` entry point (README.md) since real Google OAuth cannot be driven by automation. `tests/e2e/global-setup.ts` provisions the shared local test account once, sequentially, before Playwright workers start (commit `d73ccb0`), avoiding a sign-in race under parallel test execution. These specs were backfilled into `tasks.md` as T041a–T041c for traceability, not re-authored.
+
+**Where the e2e tasks live now**: US2, US3, and US4 each carry one e2e task covering that story's user-facing flow — T058a (`stock-shelf.spec.ts`), T108a (`orders-budget.spec.ts`), T136a (`orders-production.spec.ts`) — added by amending `tasks.md` in place rather than regenerating it, so no existing task ID moved and the GitHub Issues already raised from it stayed valid.
+
+**These are not red-green pairs, by design.** An earlier draft of this section called for e2e specs "added as paired task entries (test task alongside implementation task)", mirroring the failing-first rule enforced for pgTAP and RTL. That was wrong, and constitution v1.6.1 settles it: an e2e spec is regression coverage for a flow that already works, written against the story's completed implementation and confirmed **passing**. Requiring it to fail first would only mean asserting against a flow nobody has built yet, and it would make the US1 backfill above a standing violation rather than the correct shape. The failing-first discipline stays with the unit, component, and pgTAP tasks that actually drive the implementation.
+
+## 13. UI prototyping workflow (constitution v1.6.0, Principle XII)
+
+**Decision**: constitution v1.6.0 (2026-09-16) added Principle XII: for any user story whose tasks include new or changed UI screens, a working throwaway React prototype — real components driven by mock/static data only, no tests, no Supabase wiring — MUST be built under a gitignored `prototypes/` directory and explicitly approved by Eduardo before that story's implementation tasks begin. This is a new process gate, not a revision of an existing research decision.
+
+**Rationale**: Eduardo found too many issues only after US1 (Catalog) was fully implemented and tested, when they were already expensive to change. A cheap, disposable prototype surfaces layout/interaction/UX problems before Principle I's test-first implementation commits to a structure.
+
+**Scope against this feature**: US1 (Catalog) was already implemented before this principle existed and is grandfathered — it is not retroactively blocked. US2 (Stock/shelf views), US3 (Order Budgeting wizard), and US4 (status timeline, production actuals) all introduce new UI per `plan.md`'s Project Structure section, so all three are in scope going forward: each needs a prototype-and-approval step inserted after its tasks are generated and before its implementation tasks start, which `/speckit-tasks` needs to represent as an explicit checkpoint task per story.
+
+**Alternatives considered**: none — this is a constitution-mandated process gate, not a technical choice with alternatives to weigh.

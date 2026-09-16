@@ -40,7 +40,7 @@ until its user-facing flows have Playwright coverage in `tests/e2e/`, not just V
 1. Link a Stock Product "Leite Moça 395g" to the Ingredient above (package amount 395, unit `g`); register two Batches at different prices and expiration dates.
 2. Try linking a Stock Product measured in `ml` to that same `g` Ingredient; confirm it is rejected (FR-010, dimension check).
 3. Use the bulk-pack entry to register a case of 24 units of the Material at a total price, **leaving the expiration date empty** — molds do not expire (FR-011); confirm the derived per-unit price matches `total / 24`.
-4. **Expected**: each Ingredient Batch shows `remaining_amount` in grams (e.g. 10 × 395 g = 3950 g), not a package count; the Material Batch persists with no expiration date; the bulk-pack Batch's `unit_price` is the derived per-package figure (FR-013).
+4. **Expected**: each Ingredient Batch shows `remaining_amount` in grams (e.g. 10 × 395 g = 3950 g), not a package count; the Material Batch persists with no expiration date; the bulk-pack Batch's `package_price` is the derived per-package figure (FR-013).
 
 ### US3 — Order Budgeting (P3)
 
