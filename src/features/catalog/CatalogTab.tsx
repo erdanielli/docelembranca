@@ -6,7 +6,8 @@ import { IngredientList } from "./IngredientList";
 import { MaterialForm } from "./MaterialForm";
 import { MaterialList } from "./MaterialList";
 import { RecipeForm } from "./RecipeForm";
-import { RecipeSizeVariantEditor } from "./RecipeSizeVariantEditor";
+import { RecipeList } from "./RecipeList";
+import { RecipeSizeVariantEditor, type IngredientRow, type MaterialRow } from "./RecipeSizeVariantEditor";
 
 type Section = "ingredients" | "materials" | "recipes";
 
@@ -35,6 +36,12 @@ export function CatalogTab({ client }: { client: DataClient }) {
   const [editingIngredient, setEditingIngredient] = useState<Tables<"ingredients"> | undefined>();
   const [editingMaterial, setEditingMaterial] = useState<Tables<"materials"> | undefined>();
   const [selectedRecipe, setSelectedRecipe] = useState<Tables<"recipes"> | undefined>();
+
+  const [editingVariant, setEditingVariant] = useState<Tables<"recipe_size_variants"> | undefined>();
+  const [editingVariantIngredientRows, setEditingVariantIngredientRows] = useState<readonly IngredientRow[]>(
+    [],
+  );
+  const [editingVariantMaterialRows, setEditingVariantMaterialRows] = useState<readonly MaterialRow[]>([]);
 
   // A failed refetch leaves the previously-loaded list on screen rather than
   // clearing it — a transient network error shouldn't make the catalog look empty.
@@ -89,6 +96,38 @@ export function CatalogTab({ client }: { client: DataClient }) {
     [client],
   );
 
+  // Fetches a Variant's composition and enters edit mode in one state update,
+  // so RecipeSizeVariantEditor mounts already populated instead of flashing
+  // an empty "add" form while the round trip is in flight.
+  const startEditingVariant = useCallback(
+    async (variant: Tables<"recipe_size_variants">) => {
+      try {
+        const [{ data: ingredientRows }, { data: materialRows }] = await Promise.all([
+          client.from("recipe_variant_ingredients").select("*").eq("variant_id", variant.id),
+          client.from("recipe_variant_materials").select("*").eq("variant_id", variant.id),
+        ]);
+        setEditingVariant(variant);
+        setEditingVariantIngredientRows(
+          (ingredientRows ?? []).map((row) => ({
+            key: row.id,
+            ingredientId: row.ingredient_id,
+            amount: String(row.amount),
+          })),
+        );
+        setEditingVariantMaterialRows(
+          (materialRows ?? []).map((row) => ({
+            key: row.id,
+            materialId: row.material_id,
+            amount: String(row.amount),
+          })),
+        );
+      } catch {
+        setEditingVariant(variant);
+      }
+    },
+    [client],
+  );
+
   useEffect(() => {
     void refreshIngredients();
     void refreshMaterials();
@@ -96,6 +135,7 @@ export function CatalogTab({ client }: { client: DataClient }) {
   }, [refreshIngredients, refreshMaterials, refreshRecipes]);
 
   useEffect(() => {
+    setEditingVariant(undefined);
     if (selectedRecipe) {
       void refreshVariants(selectedRecipe.id);
     } else {
@@ -104,7 +144,7 @@ export function CatalogTab({ client }: { client: DataClient }) {
   }, [selectedRecipe, refreshVariants]);
 
   return (
-    <div className="catalog-tab">
+    <div className="catalog-tab" data-section={section}>
       <div className="segmented" role="group" aria-label="Seções do catálogo">
         {SECTIONS.map((item) => (
           <button
@@ -122,12 +162,14 @@ export function CatalogTab({ client }: { client: DataClient }) {
       {section === "ingredients" && (
         <section aria-label="Ingredientes" className="catalog-tab__section">
           <IngredientForm
+            key={editingIngredient?.id ?? "new"}
             client={client}
             ingredient={editingIngredient}
             onSaved={(ingredient) => {
               setEditingIngredient(undefined);
               setIngredients((current) => upsertByName(current, ingredient));
             }}
+            onCancel={() => setEditingIngredient(undefined)}
           />
           <IngredientList
             client={client}
@@ -141,12 +183,14 @@ export function CatalogTab({ client }: { client: DataClient }) {
       {section === "materials" && (
         <section aria-label="Materiais" className="catalog-tab__section">
           <MaterialForm
+            key={editingMaterial?.id ?? "new"}
             client={client}
             material={editingMaterial}
             onSaved={(material) => {
               setEditingMaterial(undefined);
               setMaterials((current) => upsertByName(current, material));
             }}
+            onCancel={() => setEditingMaterial(undefined)}
           />
           <MaterialList
             client={client}
@@ -160,6 +204,7 @@ export function CatalogTab({ client }: { client: DataClient }) {
       {section === "recipes" && (
         <section aria-label="Receitas" className="catalog-tab__section">
           <RecipeForm
+            key={selectedRecipe?.id ?? "new"}
             client={client}
             recipe={selectedRecipe}
             variants={variants}
@@ -167,29 +212,33 @@ export function CatalogTab({ client }: { client: DataClient }) {
               setSelectedRecipe(recipe);
               setRecipes((current) => upsertByName(current, recipe));
             }}
+            onCancel={() => setSelectedRecipe(undefined)}
+            onEditVariant={(variant) => void startEditingVariant(variant)}
+            onVariantsChanged={() => {
+              setEditingVariant(undefined);
+              if (selectedRecipe) {
+                void refreshVariants(selectedRecipe.id);
+              }
+            }}
           />
-          <ul className="list" aria-label="Lista de receitas">
-            {recipes.map((recipe) => (
-              <li key={recipe.id} className="list__row">
-                <button
-                  type="button"
-                  className="list__action"
-                  onClick={() => setSelectedRecipe(recipe)}
-                >
-                  {recipe.name}
-                </button>
-              </li>
-            ))}
-          </ul>
           {selectedRecipe && (
             <RecipeSizeVariantEditor
+              key={editingVariant?.id ?? "new"}
               client={client}
               recipeId={selectedRecipe.id}
               ingredients={ingredients}
               materials={materials}
-              onAdded={() => void refreshVariants(selectedRecipe.id)}
+              variant={editingVariant}
+              initialIngredientRows={editingVariant ? editingVariantIngredientRows : []}
+              initialMaterialRows={editingVariant ? editingVariantMaterialRows : []}
+              onSaved={() => {
+                setEditingVariant(undefined);
+                void refreshVariants(selectedRecipe.id);
+              }}
+              onCancel={() => setEditingVariant(undefined)}
             />
           )}
+          <RecipeList client={client} recipes={recipes} onEdit={setSelectedRecipe} onChanged={refreshRecipes} />
         </section>
       )}
     </div>

@@ -51,14 +51,25 @@ describe("MaterialList", () => {
     });
   });
 
-  it("keeps a deactivated Material visible in the list, flagged as inactive", () => {
+  it("hides a deactivated Material by default", () => {
     const stub = createSupabaseStub();
     const item = material({ active: false });
 
     render(<MaterialList client={stub.client} materials={[item]} />);
 
+    expect(screen.queryByText("Forminha branca")).not.toBeInTheDocument();
+  });
+
+  it("shows a deactivated Material once 'Mostrar excluídos' is checked, without an Editar action", () => {
+    const stub = createSupabaseStub();
+    const item = material({ active: false });
+
+    render(<MaterialList client={stub.client} materials={[item]} />);
+
+    fireEvent.click(screen.getByLabelText("Mostrar excluídos"));
+
     expect(screen.getByText("Forminha branca")).toBeInTheDocument();
-    expect(screen.getByText("Inativo")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reativar" })).toBeInTheDocument();
   });
 });

@@ -8,10 +8,22 @@ export function MaterialForm({
   client,
   material,
   onSaved,
+  onCancel,
 }: {
   client: DataClient;
   material?: Material;
   onSaved?: (material: Material) => void;
+  onCancel?: () => void;
 }) {
-  return <CatalogEntityForm client={client} table="materials" entity={material} onSaved={onSaved} />;
+  return (
+    <CatalogEntityForm
+      client={client}
+      table="materials"
+      entity={material}
+      namePlaceholder="Ex: Forminha simples"
+      defaultUnit="un"
+      onSaved={onSaved}
+      onCancel={onCancel}
+    />
+  );
 }

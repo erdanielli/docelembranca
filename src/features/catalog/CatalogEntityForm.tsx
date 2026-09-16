@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import type { DataClient } from "../../lib/dataClient";
 import type { Tables } from "../../lib/database.types";
 import { ALL_UNITS, type Unit } from "../../lib/units";
@@ -14,18 +14,24 @@ export function CatalogEntityForm({
   client,
   table,
   entity,
+  namePlaceholder,
+  defaultUnit = "g",
   onSaved,
+  onCancel,
 }: {
   client: DataClient;
   table: CatalogEntityTable;
   entity?: Entity;
+  namePlaceholder?: string;
+  defaultUnit?: Unit;
   onSaved?: (entity: Entity) => void;
+  onCancel?: () => void;
 }) {
   const [name, setName] = useState(entity?.name ?? "");
-  const [unit, setUnit] = useState<Unit>(entity?.unit ?? "g");
+  const [unit, setUnit] = useState<Unit>(entity?.unit ?? defaultUnit);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (event: FormEvent) => {
+  const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
 
@@ -44,43 +50,57 @@ export function CatalogEntityForm({
     onSaved?.(data);
     if (!entity) {
       setName("");
-      setUnit("g");
+      setUnit(defaultUnit);
     }
   };
 
   return (
     <form className="form" onSubmit={handleSubmit}>
-      <label className="form__field">
-        <span className="form__label">Nome</span>
-        <input
-          className="form__input"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          required
-        />
-      </label>
-      <label className="form__field">
-        <span className="form__label">Unidade</span>
-        <select
-          className="form__select"
-          value={unit}
-          onChange={(event) => setUnit(event.target.value as Unit)}
-        >
-          {ALL_UNITS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="form__row--name-unit">
+        <label className="form__field">
+          <span className="form__label">Nome</span>
+          <input
+            className="form__input"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder={namePlaceholder}
+            required
+          />
+        </label>
+        <label className="form__field">
+          <select
+            aria-label="Unidade"
+            className="form__select"
+            value={unit}
+            onChange={(event) => setUnit(event.target.value as Unit)}
+          >
+            {ALL_UNITS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       {error && (
         <p className="form__error" role="alert">
           {error}
         </p>
       )}
-      <button type="submit" className="btn btn--primary">
-        Salvar
-      </button>
+      {entity ? (
+        <div className="form__actions">
+          <button type="submit" className="btn btn--primary">
+            Atualizar
+          </button>
+          <button type="button" className="btn btn--secondary" onClick={onCancel}>
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <button type="submit" className="btn btn--primary">
+          Salvar
+        </button>
+      )}
     </form>
   );
 }

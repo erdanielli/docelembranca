@@ -25,7 +25,7 @@ export function AppShell({ client = supabase }: { client?: DataClient }) {
 
   return (
     <>
-      <main className="content">
+      <main className="content" data-tab={activeId}>
         <div
           className="tabpanel"
           role="tabpanel"

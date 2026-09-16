@@ -2,25 +2,24 @@ import type { DataClient } from "../../lib/dataClient";
 import type { Tables } from "../../lib/database.types";
 import { CatalogEntityList } from "./CatalogEntityList";
 
-type Material = Tables<"materials">;
+type Recipe = Tables<"recipes">;
 
-export function MaterialList({
+export function RecipeList({
   client,
-  materials,
+  recipes,
   onEdit,
   onChanged,
 }: {
   client: DataClient;
-  materials: readonly Material[];
-  onEdit?: (material: Material) => void;
+  recipes: readonly Recipe[];
+  onEdit?: (recipe: Recipe) => void;
   onChanged?: () => void;
 }) {
   return (
     <CatalogEntityList
       client={client}
-      table="materials"
-      entities={materials}
-      renderMeta={(material) => material.unit}
+      table="recipes"
+      entities={recipes}
       onEdit={onEdit}
       onChanged={onChanged}
     />

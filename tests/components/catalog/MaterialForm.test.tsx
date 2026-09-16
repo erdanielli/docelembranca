@@ -10,6 +10,8 @@ describe("MaterialForm", () => {
 
     render(<MaterialForm client={stub.client} onSaved={onSaved} />);
 
+    expect(screen.getByLabelText("Nome")).toHaveAttribute("placeholder", "Ex: Forminha simples");
+
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Forminha branca" } });
     fireEvent.change(screen.getByLabelText("Unidade"), { target: { value: "un" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
@@ -18,6 +20,14 @@ describe("MaterialForm", () => {
       const insertCall = stub.calls.find((call) => call.method === "materials.insert");
       expect(insertCall?.args[0]).toEqual({ name: "Forminha branca", unit: "un" });
     });
+  });
+
+  it("defaults the unit to 'un' for a new Material", () => {
+    const stub = createSupabaseStub();
+
+    render(<MaterialForm client={stub.client} />);
+
+    expect(screen.getByLabelText("Unidade")).toHaveValue("un");
   });
 
   it("edits an existing Material, prefilling its current name and unit", async () => {
@@ -37,7 +47,7 @@ describe("MaterialForm", () => {
     expect(screen.getByLabelText("Unidade")).toHaveValue("un");
 
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Forminha dourada" } });
-    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Atualizar" }));
 
     await vi.waitFor(() => {
       const updateCall = stub.calls.find((call) => call.method === "materials.update");

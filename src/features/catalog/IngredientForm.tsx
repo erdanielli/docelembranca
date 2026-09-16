@@ -8,12 +8,22 @@ export function IngredientForm({
   client,
   ingredient,
   onSaved,
+  onCancel,
 }: {
   client: DataClient;
   ingredient?: Ingredient;
   onSaved?: (ingredient: Ingredient) => void;
+  onCancel?: () => void;
 }) {
   return (
-    <CatalogEntityForm client={client} table="ingredients" entity={ingredient} onSaved={onSaved} />
+    <CatalogEntityForm
+      client={client}
+      table="ingredients"
+      entity={ingredient}
+      namePlaceholder="Ex: Leite condensado semi-integral"
+      defaultUnit="g"
+      onSaved={onSaved}
+      onCancel={onCancel}
+    />
   );
 }

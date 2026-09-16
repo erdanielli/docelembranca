@@ -10,6 +10,11 @@ describe("IngredientForm", () => {
 
     render(<IngredientForm client={stub.client} onSaved={onSaved} />);
 
+    expect(screen.getByLabelText("Nome")).toHaveAttribute(
+      "placeholder",
+      "Ex: Leite condensado semi-integral",
+    );
+
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Leite condensado" } });
     fireEvent.change(screen.getByLabelText("Unidade"), { target: { value: "kg" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
@@ -18,6 +23,14 @@ describe("IngredientForm", () => {
       const insertCall = stub.calls.find((call) => call.method === "ingredients.insert");
       expect(insertCall?.args[0]).toEqual({ name: "Leite condensado", unit: "kg" });
     });
+  });
+
+  it("defaults the unit to grams for a new Ingredient", () => {
+    const stub = createSupabaseStub();
+
+    render(<IngredientForm client={stub.client} />);
+
+    expect(screen.getByLabelText("Unidade")).toHaveValue("g");
   });
 
   it("edits an existing Ingredient, prefilling its current name and unit", async () => {
@@ -37,7 +50,7 @@ describe("IngredientForm", () => {
     expect(screen.getByLabelText("Unidade")).toHaveValue("g");
 
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Açúcar refinado" } });
-    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Atualizar" }));
 
     await vi.waitFor(() => {
       const updateCall = stub.calls.find((call) => call.method === "ingredients.update");
@@ -45,6 +58,26 @@ describe("IngredientForm", () => {
       const eqCall = stub.calls.find((call) => call.method === "ingredients.eq");
       expect(eqCall?.args).toEqual(["id", "ing-1"]);
     });
+  });
+
+  it("shows a Cancel button only while editing, which invokes onCancel", () => {
+    const stub = createSupabaseStub();
+    const onCancel = vi.fn();
+    const ingredient = {
+      id: "ing-1",
+      name: "Açúcar",
+      unit: "g" as const,
+      active: true,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+
+    const { rerender } = render(<IngredientForm client={stub.client} />);
+    expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+
+    rerender(<IngredientForm client={stub.client} ingredient={ingredient} onCancel={onCancel} />);
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(onCancel).toHaveBeenCalled();
   });
 
   it("shows an error and keeps the typed input when the save fails", async () => {
