@@ -129,7 +129,7 @@ This matters because a 395 g can used for 200 g of brigadeiro leaves 195 g, whic
 - `costed_at` (timestamptz, nullable) — when `reserve_stock_for_order` last ran for this line; compared against `recipe_size_variants.updated_at` to raise FR-021b's "needs recalculation" flag
 - `created_at`, `updated_at`
 - **Validation** (trigger): `variant_id` must belong to `recipe_id`
-- **Trigger** (`assert_parent_order_mutable`): rejects writes when the parent Order is `consolidated` or `canceled` (FR-037); applies equally to `order_recipe_line_material_overrides` and `order_stock_reservations`
+- **Trigger** (`assert_parent_order_mutable`): rejects writes when the parent Order is `consolidated` or `canceled` (FR-037); applies equally to `order_recipe_line_material_overrides`, `order_stock_reservations`, and `order_stock_consumptions`
 
 ### `order_recipe_line_material_overrides`
 - `id` (uuid, pk)
@@ -172,6 +172,7 @@ This matters because a 395 g can used for 200 g of brigadeiro leaves 195 g, whic
 - `confirmed_at` (timestamptz, required, default now())
 - Unique on (`order_recipe_line_id`, `stock_batch_id`) — one confirmation per reserved pair, which is what makes FR-034's completeness check a simple count comparison
 - Written only via the `consolidate_order_stock` RPC (FR-033)
+- **Trigger** (`assert_parent_order_mutable`, as on `order_recipe_lines`): once the parent Order is `consolidated` or `canceled`, UPDATE and DELETE are rejected (FR-037) — these rows are the "actual" side of FR-035's budgeted-vs-actual comparison, so leaving them editable after Consolidation would leave the Order's real cost and profit permanently rewritable. INSERT during Consolidation is unaffected: `consolidate_order_stock` inserts each confirmation while the Order is still `awaiting_consolidation`, and only transitions it to `consolidated` after the final insert
 
 ### `order_status_history`
 - `id` (uuid, pk)
