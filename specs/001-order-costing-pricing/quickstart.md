@@ -5,10 +5,10 @@ This is a validation guide, not a test suite — it proves the feature works end
 ## Prerequisites
 
 - `.env` populated per README.md (Supabase URL + anon key).
-- **Local Supabase stack initialized**: this repo has no `supabase/config.toml` yet, so `supabase init` must be run once (and its `config.toml` committed) before anything below works — see research.md §10. Then `supabase start` brings up the local stack; the devcontainer already publishes 54321/54323 to the host.
+- **Local Supabase stack**: `supabase/config.toml` is committed (T006), so `supabase start` is all that is needed to bring the stack up. The devcontainer shares the host's network namespace (`runArgs: ["--network=host"]`, with `forwardPorts` deliberately absent), so 54321–54324 are already on the host's loopback — nothing is forwarded or published, and re-adding `forwardPorts` makes `supabase start` fail with `address already in use` (research.md §10).
 - Migrations applied: `supabase migration up` against the local stack (`supabase db push` for the hosted project).
-- Dependencies installed: `npm install` (after tasks.md adds Vitest/RTL to `package.json`).
-- Dev server running: `npm run dev`, reachable from the host browser (devcontainer port forwarding, per constitution).
+- Dependencies installed: `npm install`.
+- Dev server running: `npm run dev`, reachable from the host browser over that same shared namespace.
 
 The local stack is for tests and type generation only; the hosted project stays the deployment target.
 
