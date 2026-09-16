@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { CatalogTab } from "../features/catalog/CatalogTab";
+import type { DataClient } from "../lib/dataClient";
+import { supabase } from "../lib/supabaseClient";
 
 type TabId = "catalog" | "stock" | "customers" | "orders";
 
@@ -10,8 +13,15 @@ const TABS: readonly { readonly id: TabId; readonly label: string }[] = [
   { id: "orders", label: "Pedidos" },
 ];
 
-export function AppShell() {
+export function AppShell({ client = supabase }: { client?: DataClient }) {
   const [activeId, setActiveId] = useState<TabId>("catalog");
+
+  const panels: Record<TabId, React.ReactNode> = {
+    catalog: <CatalogTab client={client} />,
+    stock: null,
+    customers: null,
+    orders: null,
+  };
 
   return (
     <>
@@ -21,7 +31,9 @@ export function AppShell() {
           role="tabpanel"
           id={`panel-${activeId}`}
           aria-labelledby={`tab-${activeId}`}
-        />
+        >
+          {panels[activeId]}
+        </div>
       </main>
 
       <nav className="tabbar" role="tablist">

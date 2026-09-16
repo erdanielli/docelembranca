@@ -88,20 +88,20 @@ Single Vite/React project (no `backend/`) per plan.md's Project Structure:
 
 ### Components for User Story 1
 
-- [ ] T028 [P] [US1] Write RTL test `tests/components/catalog/IngredientForm.test.tsx` for creating and editing an Ingredient with a name and a unit of measure — must fail
-- [ ] T029 [P] [US1] Write RTL test `tests/components/catalog/IngredientList.test.tsx` for listing, editing, and deactivating an Ingredient, and asserting a deactivated one is hidden from new selections while remaining visible on rows that already reference it (FR-008a) — must fail
-- [ ] T030 [P] [US1] Write RTL test `tests/components/catalog/MaterialForm.test.tsx` mirroring T028 for Materials — must fail
-- [ ] T031 [P] [US1] Write RTL test `tests/components/catalog/MaterialList.test.tsx` mirroring T029 for Materials — must fail
-- [ ] T032 [P] [US1] Write RTL test `tests/components/catalog/RecipeForm.test.tsx` for creating and editing a Recipe and listing its Size Variants (FR-003) — must fail
-- [ ] T033 [P] [US1] Write RTL test `tests/components/catalog/RecipeSizeVariantEditor.test.tsx` covering: adding a Size Variant with Ingredient amounts and Material choices, adding a second variant with different amounts that coexists independently, and Ingredient/Material pickers offering only active catalog entries (FR-004–FR-007) — must fail
-- [ ] T034 [P] [US1] Write RTL test `tests/components/catalog/CatalogTab.test.tsx` asserting the Catálogo tab renders the Ingredient, Material, and Recipe sections and navigates between them — must fail
-- [ ] T035 [P] [US1] Implement `src/features/catalog/IngredientForm.tsx` satisfying T028, styled per `src/ios.css`
-- [ ] T036 [P] [US1] Implement `src/features/catalog/IngredientList.tsx` satisfying T029
-- [ ] T037 [P] [US1] Implement `src/features/catalog/MaterialForm.tsx` satisfying T030
-- [ ] T038 [P] [US1] Implement `src/features/catalog/MaterialList.tsx` satisfying T031
-- [ ] T039 [US1] Implement `src/features/catalog/RecipeForm.tsx` satisfying T032
-- [ ] T040 [US1] Implement `src/features/catalog/RecipeSizeVariantEditor.tsx` satisfying T033, restricting selection to existing catalog entries (FR-007 mirrored client-side)
-- [ ] T041 [US1] Implement `src/features/catalog/CatalogTab.tsx` and wire it into the Catálogo tab from T019, satisfying T034
+- [X] T028 [P] [US1] Write RTL test `tests/components/catalog/IngredientForm.test.tsx` for creating and editing an Ingredient with a name and a unit of measure — must fail
+- [X] T029 [P] [US1] Write RTL test `tests/components/catalog/IngredientList.test.tsx` for listing, editing, and deactivating an Ingredient, and asserting a deactivated one is hidden from new selections while remaining visible on rows that already reference it (FR-008a) — must fail
+- [X] T030 [P] [US1] Write RTL test `tests/components/catalog/MaterialForm.test.tsx` mirroring T028 for Materials — must fail
+- [X] T031 [P] [US1] Write RTL test `tests/components/catalog/MaterialList.test.tsx` mirroring T029 for Materials — must fail
+- [X] T032 [P] [US1] Write RTL test `tests/components/catalog/RecipeForm.test.tsx` for creating and editing a Recipe and listing its Size Variants (FR-003) — must fail
+- [X] T033 [P] [US1] Write RTL test `tests/components/catalog/RecipeSizeVariantEditor.test.tsx` covering: adding a Size Variant with Ingredient amounts and Material choices, adding a second variant with different amounts that coexists independently, and Ingredient/Material pickers offering only active catalog entries (FR-004–FR-007) — must fail
+- [X] T034 [P] [US1] Write RTL test `tests/components/catalog/CatalogTab.test.tsx` asserting the Catálogo tab renders the Ingredient, Material, and Recipe sections and navigates between them — must fail
+- [X] T035 [P] [US1] Implement `src/features/catalog/IngredientForm.tsx` satisfying T028, styled per `src/ios.css`
+- [X] T036 [P] [US1] Implement `src/features/catalog/IngredientList.tsx` satisfying T029
+- [X] T037 [P] [US1] Implement `src/features/catalog/MaterialForm.tsx` satisfying T030
+- [X] T038 [P] [US1] Implement `src/features/catalog/MaterialList.tsx` satisfying T031
+- [X] T039 [US1] Implement `src/features/catalog/RecipeForm.tsx` satisfying T032
+- [X] T040 [US1] Implement `src/features/catalog/RecipeSizeVariantEditor.tsx` satisfying T033, restricting selection to existing catalog entries (FR-007 mirrored client-side)
+- [X] T041 [US1] Implement `src/features/catalog/CatalogTab.tsx` and wire it into the Catálogo tab from T019, satisfying T034
 
 **Checkpoint**: User Story 1 is fully functional and independently testable — a usable recipe book before Stock or Orders exist.
 
