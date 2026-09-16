@@ -1,3 +1,4 @@
+import { AppShell } from "./components/AppShell";
 import { LoginGate } from "./components/LoginGate";
 import { supabase } from "./lib/supabaseClient";
 
@@ -12,7 +13,7 @@ function App() {
           </button>
         </header>
 
-        <main className="content" />
+        <AppShell />
       </div>
     </LoginGate>
   );

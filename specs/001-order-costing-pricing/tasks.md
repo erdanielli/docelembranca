@@ -34,18 +34,18 @@ Single Vite/React project (no `backend/`) per plan.md's Project Structure:
 
 **Purpose**: Stand up the testing stack and the local Supabase stack this feature is the first to need (research.md §1, §10) before any test-first task can run.
 
-- [ ] T001 Verify against the npm registry that the majors named in research.md §1 (Vitest 5.0.x, `@testing-library/react` 16.3.x, `@testing-library/jest-dom` 7.0.x, `jsdom` 30.0.x) are still the current stable releases; record the confirmed versions in `specs/001-order-costing-pricing/research.md` §1 and raise any difference with Eduardo before pinning (Principles VIII and X)
-- [ ] T002 Add the four devDependencies from T001 to `package.json` at the confirmed versions
-- [ ] T003 [P] Create `vitest.config.ts` at repo root: `test.environment = "jsdom"`, `test.globals = true`, `test.setupFiles = ["tests/setup.ts"]`
-- [ ] T004 [P] Create `tests/setup.ts` importing `@testing-library/jest-dom/vitest`
-- [ ] T005 Add `"test": "vitest run"` and `"gen:types": "supabase gen types typescript --local > src/lib/database.types.ts"` scripts to `package.json`
+- [x] T001 Verify against the npm registry that the majors named in research.md §1 (Vitest 5.0.x, `@testing-library/react` 16.3.x, `@testing-library/jest-dom` 7.0.x, `jsdom` 30.0.x) are still the current stable releases; record the confirmed versions in `specs/001-order-costing-pricing/research.md` §1 and raise any difference with Eduardo before pinning (Principles VIII and X)
+- [x] T002 Add the four devDependencies from T001 to `package.json` at the confirmed versions
+- [x] T003 [P] Create `vitest.config.ts` at repo root: `test.environment = "jsdom"`, `test.globals = true`, `test.setupFiles = ["tests/setup.ts"]`
+- [x] T004 [P] Create `tests/setup.ts` importing `@testing-library/jest-dom/vitest`
+- [x] T005 Add `"test": "vitest run"` and `"gen:types": "supabase gen types typescript --local > src/lib/database.types.ts"` scripts to `package.json`
 - [x] T006 Run `supabase init` and commit the generated `supabase/config.toml` — the repo has none today, so `supabase test db`, `supabase start`, and `gen types --local` cannot run at all until this lands (research.md §10)
-- [ ] T007 Bring the local stack up with `supabase start`, confirm the API (54321) and Studio (54323) are reachable from the host browser, and document the local-database commands in a "Local database (tests)" section of `README.md`, keeping the hosted `supabase link` + `db push` flow as the deployment path
-- [ ] T008 Run `supabase migration new enable_pgtap` and enable the `pgtap` extension in the generated `supabase/migrations/<timestamp>_enable_pgtap.sql`
-- [ ] T009 Create `supabase/tests/database/000_sanity.test.sql`: a one-assertion pgTAP smoke test (`has_extension('pgtap')`) proving `supabase test db` is wired up; confirm it passes after T008
-- [ ] T010 Run `npm run gen:types` against the local stack to confirm the T005 script writes `src/lib/database.types.ts` before any feature table exists
+- [x] T007 Add `"runArgs": ["--network=host"]` to `.devcontainer/devcontainer.json` and rebuild the container, then bring the local stack up with `supabase start`, confirm the API (54321) and Studio (54323) are reachable from the host browser, and document the local-database commands in a "Local database (tests)" section of `README.md`, keeping the hosted `supabase link` + `db push` flow as the deployment path (research.md §10 — without the shared network namespace the CLI health-checks an empty loopback and stops the stack it started)
+- [x] T008 Run `supabase migration new enable_pgtap` and enable the `pgtap` extension in the generated `supabase/migrations/<timestamp>_enable_pgtap.sql`
+- [x] T009 Create `supabase/tests/database/000_sanity.test.sql`: a one-assertion pgTAP smoke test (`has_extension('extensions', 'pgtap')`) proving the harness is wired up, and add the `test:db` script that runs `pg_prove` against the local database; confirm it passes after T008 (research.md §11 — `supabase test db` cannot reach the tests from this container)
+- [x] T010 Run `npm run gen:types` against the local stack to confirm the T005 script writes `src/lib/database.types.ts` before any feature table exists
 
-**Checkpoint**: `npm test` and `supabase test db` are both runnable, against a local stack that exists, before any feature code is written.
+**Checkpoint**: `npm test` and `npm run test:db` are both runnable, against a local stack that exists, before any feature code is written.
 
 ---
 
@@ -55,16 +55,16 @@ Single Vite/React project (no `backend/`) per plan.md's Project Structure:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T011 [P] Create `tests/helpers/supabaseStub.ts`: a typed stub of the `supabase-js` client (`from`, `rpc`, `auth`) that records every call, so component tests can assert both results and the **absence** of calls; it is exercised by every RTL test that follows rather than having a test of its own
-- [ ] T012 [P] Write pgTAP test `supabase/tests/database/010_is_allowed_user.test.sql` asserting `is_allowed_user()` returns true when `auth.jwt() ->> 'email'` matches the allowed email and false otherwise — must fail (function doesn't exist yet)
-- [ ] T013 Run `supabase migration new is_allowed_user_helper` and, in the generated `supabase/migrations/<timestamp>_is_allowed_user_helper.sql`, implement the `is_allowed_user()` SQL helper per research.md §4 in the generated migration; confirm T012 passes
-- [ ] T014 [P] Write Vitest unit test `tests/unit/units/convert.test.ts` for `convert(value, fromUnit, toUnit)` covering mass (`mg`/`g`/`kg`), volume (`ml`/`l`), and count (`un`) conversions, and asserting it throws on a cross-dimension conversion (research.md §3) — must fail
-- [ ] T015 Implement `src/lib/units/convert.ts` + `src/lib/units/index.ts` with the fixed unit/dimension table from data-model.md, satisfying T014
-- [ ] T016 [P] Write pgTAP test `supabase/tests/database/020_convert_unit.test.sql` for the mirrored Postgres `convert_unit(value, from_unit, to_unit)` function, asserting the same cases as T014 — must fail
-- [ ] T017 Run `supabase migration new convert_unit_function` and, in the generated `supabase/migrations/<timestamp>_convert_unit_function.sql`, implement `convert_unit(...)` per research.md §3, mirroring T015's table exactly; confirm T016 passes
-- [ ] T018 [P] Write RTL test `tests/components/AppShell.test.tsx` asserting the tab shell renders four tabs (Catálogo, Estoque, Clientes, Pedidos), switches the rendered panel on tab press, and marks the active tab — must fail
-- [ ] T019 Add the iOS-style tab navigation shell to `src/App.tsx` reusing `src/ios.css` conventions (Principle IX) inside the existing `<main className="content" />`, rendering an empty placeholder per tab, satisfying T018; flag the pt_BR tab labels for Eduardo's consent (Constitution VI / Development Workflow)
-- [ ] T020 [P] Scaffold `src/features/catalog/index.ts`, `src/features/stock/index.ts`, `src/features/customers/index.ts`, `src/features/orders/index.ts` per plan.md's Project Structure
+- [x] T011 [P] Create `tests/helpers/supabaseStub.ts`: a typed stub of the `supabase-js` client (`from`, `rpc`, `auth`) that records every call, so component tests can assert both results and the **absence** of calls; it is exercised by every RTL test that follows rather than having a test of its own
+- [x] T012 [P] Write pgTAP test `supabase/tests/database/010_is_allowed_user.test.sql` asserting `is_allowed_user()` returns true when `auth.jwt() ->> 'email'` matches the allowed email and false otherwise — must fail (function doesn't exist yet)
+- [x] T013 Run `supabase migration new is_allowed_user_helper` and, in the generated `supabase/migrations/<timestamp>_is_allowed_user_helper.sql`, implement the `is_allowed_user()` SQL helper per research.md §4 in the generated migration; confirm T012 passes
+- [x] T014 [P] Write Vitest unit test `tests/unit/units/convert.test.ts` for `convert(value, fromUnit, toUnit)` covering mass (`mg`/`g`/`kg`), volume (`ml`/`l`), and count (`un`) conversions, and asserting it throws on a cross-dimension conversion (research.md §3) — must fail
+- [x] T015 Implement `src/lib/units/convert.ts` + `src/lib/units/index.ts` with the fixed unit/dimension table from data-model.md, satisfying T014
+- [x] T016 [P] Write pgTAP test `supabase/tests/database/020_convert_unit.test.sql` for the mirrored Postgres `convert_unit(value, from_unit, to_unit)` function, asserting the same cases as T014 — must fail
+- [x] T017 Run `supabase migration new convert_unit_function` and, in the generated `supabase/migrations/<timestamp>_convert_unit_function.sql`, create the shared `unit_of_measure` enum (`mg|g|kg|ml|l|un`, which every Phase 3+ table references) plus `unit_dimension()`, `unit_factor()`, and `convert_unit(...)` per research.md §3, mirroring T015's table exactly; confirm T016 passes
+- [x] T018 [P] Write RTL test `tests/components/AppShell.test.tsx` asserting the tab shell renders four tabs (Catálogo, Estoque, Clientes, Pedidos), switches the rendered panel on tab press, and marks the active tab — must fail
+- [x] T019 Implement the iOS-style tab navigation shell as `src/components/AppShell.tsx` — its own component rather than inline in `src/App.tsx`, so it can be tested without standing up the auth gate — rendering `<main className="content">` as the active tab's panel plus a bottom `.tabbar`, with the tab styles added to `src/ios.css` in its existing BEM idiom (Principle IX); `src/App.tsx` renders it inside `LoginGate`. Satisfies T018; the pt_BR tab labels are flagged for Eduardo's consent (Constitution VI / Development Workflow)
+- [x] T020 [P] Scaffold `src/features/catalog/index.ts`, `src/features/stock/index.ts`, `src/features/customers/index.ts`, `src/features/orders/index.ts` per plan.md's Project Structure
 
 **Checkpoint**: `is_allowed_user()` and `convert_unit()` exist and are tested, the client-side `convert()` is tested, the tab shell exists and is tested, and the supabase stub is ready — user story work can now begin.
 
@@ -78,30 +78,30 @@ Single Vite/React project (no `backend/`) per plan.md's Project Structure:
 
 ### Schema for User Story 1
 
-- [ ] T021 [P] [US1] Write pgTAP test `supabase/tests/database/100_ingredients.test.sql` asserting RLS blocks a non-allowed user and permits the allowed user, `name` is required and unique, `unit` accepts only `mg|g|kg|ml|l|un`, and `active` defaults to true — must fail
-- [ ] T022 [US1] Run `supabase migration new ingredients_table` and, in the generated `supabase/migrations/<timestamp>_ingredients_table.sql`, create `ingredients` (`id` uuid pk, `name` text required unique, `unit` enum required, `active` boolean default true, `created_at`, `updated_at`) with RLS enabled and a policy using `is_allowed_user()` in the same migration (FR-001); confirm T021 passes
-- [ ] T023 [P] [US1] Write pgTAP test `supabase/tests/database/101_materials.test.sql` mirroring T021 for `materials` — must fail
-- [ ] T024 [US1] Run `supabase migration new materials_table` and, in the generated `supabase/migrations/<timestamp>_materials_table.sql`, create `materials` with the same shape and RLS as `ingredients` (FR-002); confirm T023 passes
-- [ ] T025 [P] [US1] Write pgTAP test `supabase/tests/database/102_recipes_and_variants.test.sql` asserting: RLS on all four tables; unique (`recipe_id`, `name`) on variants; the FK on `recipe_variant_ingredients.ingredient_id` rejects a non-existent ingredient (FR-007); the FK on `recipe_variant_materials.material_id` rejects a non-existent material; `amount` must be > 0; unique (`variant_id`, `ingredient_id`) and (`variant_id`, `material_id`); and the `touch_open_orders` trigger bumps `recipe_size_variants.updated_at` when a composition row changes (FR-021b) — must fail
-- [ ] T026 [US1] Run `supabase migration new recipes_and_variants` and, in the generated `supabase/migrations/<timestamp>_recipes_and_variants.sql`, create `recipes` (`id`, `name` required, `active` default true), `recipe_size_variants` (`id`, `recipe_id` fk required, `name` required, unique on (`recipe_id`,`name`)), `recipe_variant_ingredients` (`id`, `variant_id` fk required, `ingredient_id` fk required, `amount` numeric > 0 required, unique on (`variant_id`,`ingredient_id`)), `recipe_variant_materials` (same shape for materials), plus the `touch_open_orders` trigger — every table RLS-enabled via `is_allowed_user()` in this migration (FR-003–FR-007); confirm T025 passes
-- [ ] T027 [US1] Run `npm run gen:types` to refresh `src/lib/database.types.ts` after T022/T024/T026
+- [x] T021 [P] [US1] Write pgTAP test `supabase/tests/database/100_ingredients.test.sql` asserting RLS blocks a non-allowed user and permits the allowed user, `name` is required and unique, `unit` accepts only `mg|g|kg|ml|l|un`, and `active` defaults to true — must fail
+- [x] T022 [US1] Run `supabase migration new ingredients_table` and, in the generated `supabase/migrations/<timestamp>_ingredients_table.sql`, create `ingredients` (`id` uuid pk, `name` text required unique, `unit` enum required, `active` boolean default true, `created_at`, `updated_at`) with RLS enabled and a policy using `is_allowed_user()` in the same migration (FR-001); confirm T021 passes
+- [x] T023 [P] [US1] Write pgTAP test `supabase/tests/database/101_materials.test.sql` mirroring T021 for `materials` — must fail
+- [x] T024 [US1] Run `supabase migration new materials_table` and, in the generated `supabase/migrations/<timestamp>_materials_table.sql`, create `materials` with the same shape and RLS as `ingredients` (FR-002); confirm T023 passes
+- [x] T025 [P] [US1] Write pgTAP test `supabase/tests/database/102_recipes_and_variants.test.sql` asserting: RLS on all four tables; unique (`recipe_id`, `name`) on variants; the FK on `recipe_variant_ingredients.ingredient_id` rejects a non-existent ingredient (FR-007); the FK on `recipe_variant_materials.material_id` rejects a non-existent material; `amount` must be > 0; unique (`variant_id`, `ingredient_id`) and (`variant_id`, `material_id`); and the `touch_open_orders` trigger bumps `recipe_size_variants.updated_at` when a composition row changes (FR-021b) — must fail
+- [x] T026 [US1] Run `supabase migration new recipes_and_variants` and, in the generated `supabase/migrations/<timestamp>_recipes_and_variants.sql`, create `recipes` (`id`, `name` required, `active` default true), `recipe_size_variants` (`id`, `recipe_id` fk required, `name` required, unique on (`recipe_id`,`name`)), `recipe_variant_ingredients` (`id`, `variant_id` fk required, `ingredient_id` fk required, `amount` numeric > 0 required, unique on (`variant_id`,`ingredient_id`)), `recipe_variant_materials` (same shape for materials), plus the `touch_open_orders` trigger — every table RLS-enabled via `is_allowed_user()` in this migration (FR-003–FR-007); confirm T025 passes
+- [x] T027 [US1] Run `npm run gen:types` to refresh `src/lib/database.types.ts` after T022/T024/T026
 
 ### Components for User Story 1
 
-- [ ] T028 [P] [US1] Write RTL test `tests/components/catalog/IngredientForm.test.tsx` for creating and editing an Ingredient with a name and a unit of measure — must fail
-- [ ] T029 [P] [US1] Write RTL test `tests/components/catalog/IngredientList.test.tsx` for listing, editing, and deactivating an Ingredient, and asserting a deactivated one is hidden from new selections while remaining visible on rows that already reference it (FR-008a) — must fail
-- [ ] T030 [P] [US1] Write RTL test `tests/components/catalog/MaterialForm.test.tsx` mirroring T028 for Materials — must fail
-- [ ] T031 [P] [US1] Write RTL test `tests/components/catalog/MaterialList.test.tsx` mirroring T029 for Materials — must fail
-- [ ] T032 [P] [US1] Write RTL test `tests/components/catalog/RecipeForm.test.tsx` for creating and editing a Recipe and listing its Size Variants (FR-003) — must fail
-- [ ] T033 [P] [US1] Write RTL test `tests/components/catalog/RecipeSizeVariantEditor.test.tsx` covering: adding a Size Variant with Ingredient amounts and Material choices, adding a second variant with different amounts that coexists independently, and Ingredient/Material pickers offering only active catalog entries (FR-004–FR-007) — must fail
-- [ ] T034 [P] [US1] Write RTL test `tests/components/catalog/CatalogTab.test.tsx` asserting the Catálogo tab renders the Ingredient, Material, and Recipe sections and navigates between them — must fail
-- [ ] T035 [P] [US1] Implement `src/features/catalog/IngredientForm.tsx` satisfying T028, styled per `src/ios.css`
-- [ ] T036 [P] [US1] Implement `src/features/catalog/IngredientList.tsx` satisfying T029
-- [ ] T037 [P] [US1] Implement `src/features/catalog/MaterialForm.tsx` satisfying T030
-- [ ] T038 [P] [US1] Implement `src/features/catalog/MaterialList.tsx` satisfying T031
-- [ ] T039 [US1] Implement `src/features/catalog/RecipeForm.tsx` satisfying T032
-- [ ] T040 [US1] Implement `src/features/catalog/RecipeSizeVariantEditor.tsx` satisfying T033, restricting selection to existing catalog entries (FR-007 mirrored client-side)
-- [ ] T041 [US1] Implement `src/features/catalog/CatalogTab.tsx` and wire it into the Catálogo tab from T019, satisfying T034
+- [X] T028 [P] [US1] Write RTL test `tests/components/catalog/IngredientForm.test.tsx` for creating and editing an Ingredient with a name and a unit of measure — must fail
+- [X] T029 [P] [US1] Write RTL test `tests/components/catalog/IngredientList.test.tsx` for listing, editing, and deactivating an Ingredient, and asserting a deactivated one is hidden from new selections while remaining visible on rows that already reference it (FR-008a) — must fail
+- [X] T030 [P] [US1] Write RTL test `tests/components/catalog/MaterialForm.test.tsx` mirroring T028 for Materials — must fail
+- [X] T031 [P] [US1] Write RTL test `tests/components/catalog/MaterialList.test.tsx` mirroring T029 for Materials — must fail
+- [X] T032 [P] [US1] Write RTL test `tests/components/catalog/RecipeForm.test.tsx` for creating and editing a Recipe and listing its Size Variants (FR-003) — must fail
+- [X] T033 [P] [US1] Write RTL test `tests/components/catalog/RecipeSizeVariantEditor.test.tsx` covering: adding a Size Variant with Ingredient amounts and Material choices, adding a second variant with different amounts that coexists independently, and Ingredient/Material pickers offering only active catalog entries (FR-004–FR-007) — must fail
+- [X] T034 [P] [US1] Write RTL test `tests/components/catalog/CatalogTab.test.tsx` asserting the Catálogo tab renders the Ingredient, Material, and Recipe sections and navigates between them — must fail
+- [X] T035 [P] [US1] Implement `src/features/catalog/IngredientForm.tsx` satisfying T028, styled per `src/ios.css`
+- [X] T036 [P] [US1] Implement `src/features/catalog/IngredientList.tsx` satisfying T029
+- [X] T037 [P] [US1] Implement `src/features/catalog/MaterialForm.tsx` satisfying T030
+- [X] T038 [P] [US1] Implement `src/features/catalog/MaterialList.tsx` satisfying T031
+- [X] T039 [US1] Implement `src/features/catalog/RecipeForm.tsx` satisfying T032
+- [X] T040 [US1] Implement `src/features/catalog/RecipeSizeVariantEditor.tsx` satisfying T033, restricting selection to existing catalog entries (FR-007 mirrored client-side)
+- [X] T041 [US1] Implement `src/features/catalog/CatalogTab.tsx` and wire it into the Catálogo tab from T019, satisfying T034
 
 **Checkpoint**: User Story 1 is fully functional and independently testable — a usable recipe book before Stock or Orders exist.
 
@@ -263,7 +263,7 @@ Single Vite/React project (no `backend/`) per plan.md's Project Structure:
 
 - [ ] T137 [P] Write `docs/conventions.md` documenting the conventions this feature establishes: the `is_allowed_user()` RLS helper, RPC-for-atomicity, `security_invoker` on every view, canonical amounts vs. package counts, the mirrored `convert`/`convert_unit` and `selectBatchesForNeed`/`ORDER BY` pairs and how their shared fixtures keep them honest, and the Vitest/pgTAP split (Constitution Principle XI)
 - [ ] T138 Collect every pt_BR string introduced across T035–T136 into `docs/ui-strings.md` and present it to Eduardo for consent before shipping (Constitution VI / Development Workflow) — a review checkpoint, not code
-- [ ] T139 Run `npm run lint`, `npm run build`, `npm test`, and `supabase test db`; fix any failures (Development Workflow gate)
+- [ ] T139 Run `npm run lint`, `npm run build`, `npm test`, and `npm run test:db`; fix any failures (Development Workflow gate)
 - [ ] T140 Execute quickstart.md's four manual validation scenarios end to end against the local stack, recording the outcome on the feature PR and folding any deviation back into `specs/001-order-costing-pricing/quickstart.md`
 
 ---

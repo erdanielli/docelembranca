@@ -5,7 +5,15 @@ USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         jq \
+        postgresql-client \
+        libtap-parser-sourcehandler-pgtap-perl \
     && rm -rf /var/lib/apt/lists/*
+
+# psql + pg_prove run the pgTAP suite straight against the local database
+# (`npm run test:db`). `supabase test db` cannot be used from this container:
+# it asks the host's Docker daemon to bind-mount the tests directory using the
+# path as seen *in here*, which does not exist on the host, so pg_prove gets an
+# empty directory and reports "no pgTAP tests found". See research.md §11.
 
 # --- Supabase CLI ---------------------------------------------------------
 # Installed as a static binary per Supabase's own recommendation (they no

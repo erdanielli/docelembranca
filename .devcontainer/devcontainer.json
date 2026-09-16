@@ -39,6 +39,13 @@
     // line or run `claude login` once inside the container first.
     "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind,z",
 
+    // GitHub CLI credentials. Without this the token lives only in the
+    // container layer, so every rebuild silently logs `gh` out again — git
+    // itself keeps working over SSH, which makes the logout easy to miss
+    // until a `gh pr` call fails. If ~/.config/gh does not exist on the host
+    // yet, run `gh auth login` once (see the Mounts caveats in README.md).
+    "source=${localEnv:HOME}/.config/gh,target=/home/node/.config/gh,type=bind,z",
+
     // Claude Code also keeps onboarding/session state in a top-level
     // ~/.claude.json file, separate from the .claude/ folder above.
     // Without this, the container looks "unconfigured" to Claude even
@@ -52,12 +59,25 @@
 
   "postCreateCommand": "bash .devcontainer/post-create.sh",
 
-  "forwardPorts": [5173, 54321, 54323],
-  "portsAttributes": {
-    "5173": { "label": "Vite dev server" },
-    "54321": { "label": "Supabase API (local)" },
-    "54323": { "label": "Supabase Studio (local)" }
-  },
+  // Share the host's network namespace. Required by the local Supabase stack:
+  // with docker-outside-of-docker above, `supabase start` asks the HOST daemon
+  // to create the stack, which publishes on the host's 127.0.0.1:54321-54324.
+  // In its own namespace this container's 127.0.0.1 is empty, so the CLI's
+  // health check failed with ECONNREFUSED on 54322 and tore the stack down.
+  // Sharing the namespace makes one localhost for both sides, so `supabase
+  // start`, `npm run test:db`, `gen types --local` and `npm run dev`
+  // all work here and stay reachable from the host browser, which is what the
+  // constitution's devcontainer rule is for. Host-only, no isolation: a port
+  // this container binds is bound on the host.
+  "runArgs": ["--network=host"],
+
+  // No forwardPorts/portsAttributes on purpose. Under host networking there is
+  // nothing to forward — the ports are already on the host — and the IDE's
+  // forwarders actively squat them: with 54321-54324 listed here, the JetBrains
+  // client bound them on 127.0.0.1 and `supabase start` died with
+  // "failed to bind host port 0.0.0.0:54322/tcp: address already in use".
+  // Ports this project uses are documented in README.md's "Local database
+  // (tests)" section instead. Only re-add these if host networking is dropped.
 
   "customizations": {
     "jetbrains": {

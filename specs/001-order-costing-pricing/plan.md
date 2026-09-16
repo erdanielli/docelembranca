@@ -14,13 +14,13 @@ Technical approach: this stays within the existing static Vite + React + TypeScr
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.5 (strict mode), React 18.3, targeting ES2020 (existing `tsconfig.json`)
+**Language/Version**: TypeScript 5.5 (strict mode), React 19.3, targeting ES2020 (existing `tsconfig.json`), on Node 24 in the devcontainer
 
-**Primary Dependencies**: React 18.3, Vite 5.4, `@supabase/supabase-js` 2.45 (all already in the project). New dev dependencies for this feature: Vitest 5.0, `@testing-library/react` 16.3, `@testing-library/jest-dom` 7.0, `jsdom` 30.0 — versions confirmed current as of 2026-09-15 (see research.md). No new runtime dependency is introduced (no state-management or data-fetching library, no UI kit) — plain React state/hooks and `supabase-js` are sufficient for this feature's scope (Principle IV).
+**Primary Dependencies**: React 19.3, Vite 8.3, `@vitejs/plugin-react` 6.1, `@supabase/supabase-js` 2.116. The React/Vite upgrade was not optional: Vitest 5 requires Vite ≥ 6.4, so the testing stack this feature needs could not be installed on Vite 5.4 — Eduardo consented to taking the upgrade rather than pinning an older runner (research.md §6). New dev dependencies: Vitest 5.0, `@testing-library/react` 16.3, `@testing-library/dom` 10.4, `@testing-library/jest-dom` 7.0, `jsdom` 30.0, plus the ESLint 10 / typescript-eslint 8.70 flat config the repo was missing entirely. No new runtime dependency (no state-management or data-fetching library, no UI kit) — plain React state/hooks and `supabase-js` are sufficient (Principle IV).
 
 **Storage**: Supabase Postgres, via new migrations under `supabase/migrations/` — 16 tables, 4 derived views, 5 RPC functions, and the triggers that derive batch amounts, log Order creation, and freeze terminal Orders. No Supabase Storage bucket is needed for this feature (no file/photo uploads in scope).
 
-**Testing**: Vitest + React Testing Library for component and pure-logic (costing engine, unit conversion) unit tests. Postgres RPC functions, views, triggers, and RLS policies are tested directly in the database with pgTAP, run via `supabase test db` (decision revised with the user; see research.md §1). This requires a local Supabase stack that the repo does not have yet: `supabase init` (committing `config.toml`) and `supabase start` are prerequisites of the first test task (research.md §10). The client-side `selectBatchesForNeed` and its SQL counterpart are driven by the same fixtures on both sides, so a divergence fails a test (research.md §7).
+**Testing**: Vitest + React Testing Library for component and pure-logic (costing engine, unit conversion) unit tests. Postgres RPC functions, views, triggers, and RLS policies are tested directly in the database with pgTAP, run via `npm run test:db`, which drives `pg_prove` straight at the local database (research.md §1 and §11). This requires a local Supabase stack that the repo does not have yet: `supabase init` (committing `config.toml`) and `supabase start` are prerequisites of the first test task (research.md §10). The client-side `selectBatchesForNeed` and its SQL counterpart are driven by the same fixtures on both sides, so a divergence fails a test (research.md §7).
 
 **Target Platform**: Static GitHub Pages build, used from a mobile browser styled to feel iOS-native (Principle IX), single authorized user (`giselypasquini@gmail.com`).
 
@@ -45,7 +45,7 @@ Technical approach: this stays within the existing static Vite + React + TypeScr
 | V. Strict Type Safety | TypeScript types for the schema are generated via `supabase gen types typescript` rather than hand-written/`any`; costing engine functions are fully typed. | PASS (enforced in tasks) |
 | VI. Language Split | Schema identifiers, code, comments, and this plan/spec are en_US; all user-facing pt_BR strings are deferred to implementation and require Eduardo's consent before shipping, per the Development Workflow section. | PASS |
 | VII. Human-Friendly, Maintainable Code | Costing/priority-selection logic will be broken into small, named pure functions; guard clauses over nested conditionals (max 2 levels), enforced at review/implementation time. | PASS (design intent; enforced in tasks/review) |
-| VIII. Latest Stack | New dev dependencies pinned to current latest stable as of 2026-09-15 (Vitest 5.0.x, RTL 16.3.x, jest-dom 7.0.x, jsdom 30.0.x); existing React/Vite/supabase-js versions are unchanged by this feature (a broader upgrade is out of this feature's scope). | PASS |
+| VIII. Latest Stack | Everything is on current latest stable as of 2026-09-15: Node 24.21, Vite 8.3, plugin-react 6.1, React 19.3, supabase-js 2.116, Vitest 5.0.x, RTL 16.3.x, jest-dom 7.0.x, jsdom 30.0.x, ESLint 10. TypeScript stays on 5.x because typescript-eslint caps it below 6.1 — recorded as a separate decision, not an oversight (research.md §6). | PASS |
 | IX. iOS-Native Look and Feel | New screens (catalog forms, stock/shelf views, Order budgeting wizard, status timeline) reuse `src/ios.css` conventions; no new visual language introduced. | PASS (enforced in tasks) |
 | X. Deliberate Tool Selection with Consent Gate | The testing stack was researched (Vitest+RTL vs. adding pgTAP) and presented to Eduardo. He initially chose Vitest+RTL only (RPC/RLS via supabase-js integration tests), then reconsidered: testing the database directly matters, so pgTAP is adopted for RPC/RLS testing alongside Vitest+RTL for the frontend. This revision's architecture decision — mirroring batch selection client-side for the live preview versus making every edit a round trip — was likewise presented with both options and their trade-offs before being adopted (research.md §7). No new dependency is introduced by either. | PASS |
 | XI. Follow and Document Per-Stack Best Practices | This plan's research.md records the conventions adopted (RLS helper pattern, RPC-for-atomicity pattern, unit-conversion approach, testing approach); a task in `/speckit-tasks` must fold these into a durable conventions reference (e.g. `docs/conventions.md`), not leave them implicit in code only. | PASS (tracked as a task) |
@@ -101,7 +101,7 @@ supabase/
 │   #        order_line_coverage, order_item_shortfalls (all security_invoker)
 │   # each table with RLS enabled in its creating migration
 └── tests/
-    └── database/                 # pgTAP test files (*.sql), run via `supabase test db`
+    └── database/                 # pgTAP test files (*.sql), run via `npm run test:db`
                                   # (RPC functions, RLS policies — tested directly in Postgres)
 
 tests/
@@ -109,7 +109,7 @@ tests/
 └── components/                  # React Testing Library component tests
 ```
 
-**Structure Decision**: Single Vite/React project (no `backend/`) since Supabase is the only backend (Principle II). New domain logic is grouped under `src/features/<domain>` (catalog, stock, customers, orders) with shared pure logic in `src/lib/costing` and `src/lib/units`, mirroring the feature's four independently-testable user stories (P1–P4). Database logic that must be atomic lives in Postgres functions under `supabase/migrations/`, tested directly against the database with pgTAP from `supabase/tests/database/` (`supabase test db`) rather than indirectly through the JS client.
+**Structure Decision**: Single Vite/React project (no `backend/`) since Supabase is the only backend (Principle II). New domain logic is grouped under `src/features/<domain>` (catalog, stock, customers, orders) with shared pure logic in `src/lib/costing` and `src/lib/units`, mirroring the feature's four independently-testable user stories (P1–P4). Database logic that must be atomic lives in Postgres functions under `supabase/migrations/`, tested directly against the database with pgTAP from `supabase/tests/database/` (`npm run test:db`) rather than indirectly through the JS client.
 
 ## Complexity Tracking
 
